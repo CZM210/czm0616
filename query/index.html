@@ -2,37 +2,60 @@
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>商品查詢器</title>
     <style>
-        body { font-family: "微軟正黑體", sans-serif; background: #fff; padding: 10px; }
-        .container { width: 95%; margin: auto; border: 2px solid #d63384; padding: 15px; }
-        input { width: 250px; padding: 10px; font-size: 20px; border: 2px solid #999; }
-        button { padding: 10px 25px; background: #d63384; color: white; font-size: 18px; border: none; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { background: #fce4ec; border: 1px solid #ccc; padding: 10px; font-size: 16px; cursor: pointer; color: #d63384; }
-        th:hover { background: #f8bbd0; }
-        td { border: 1px solid #ccc; padding: 8px; font-size: 16px; }
-        .status { font-weight: bold; margin: 10px 0; color: #333; }
+        body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 10px; }
+        .container { width: 100%; box-sizing: border-box; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+        
+        /* 標題改為中性顏色與大小 */
+        h1 { color: #555; font-size: 20px; margin: 0 0 15px 0; }
+
+        .search-box { display: flex; margin-bottom: 10px; }
+        input { 
+            flex: 1; padding: 12px; font-size: 18px; 
+            border: 1px solid #999; border-radius: 4px 0 0 4px;
+            outline: none;
+        }
+        button { 
+            padding: 0 20px; background: #666; color: white; 
+            font-size: 16px; border: none; cursor: pointer; border-radius: 0 4px 4px 0;
+        }
+
+        /* 狀態文字極簡化 */
+        .status { font-size: 13px; margin-bottom: 8px; color: #999; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; table-layout: fixed; }
+        th { background: #f8f8f8; border: 1px solid #ddd; padding: 10px 5px; font-size: 16px; color: #333; cursor: pointer; }
+        td { border: 1px solid #ddd; padding: 10px 5px; font-size: 16px; word-wrap: break-word; }
+        
+        /* 欄位比例調整 */
+        th:nth-child(1), td:nth-child(1) { width: 15%; }
+        th:nth-child(2), td:nth-child(2) { width: 35%; }
+        th:nth-child(3), td:nth-child(3) { width: 20%; }
+        th:nth-child(4), td:nth-child(4) { width: 30%; }
+
+        .footer { display: none; } /* 完全隱藏底部資訊 */
     </style>
     
     <script type="text/javascript">
         var ALL_DATA = [];
         var CURRENT_RESULTS = [];
-        var SORT_STATE = [1, 1, 1, 1]; // 紀錄各欄位排序狀態 (1:遞增, -1:遞減)
+        var SORT_STATE = [1, 1, 1, 1];
 
         window.onload = function() {
             var statusDiv = document.getElementById('status');
-            statusDiv.innerHTML = "正在下載資料，請稍候...";
             var xhr;
             try { xhr = new XMLHttpRequest(); } 
-            catch (e) { try { xhr = new ActiveXObject("Microsoft.XMLHTTP"); } catch (e) { alert("瀏覽器太舊"); return; } }
+            catch (e) { try { xhr = new ActiveXObject("Microsoft.XMLHTTP"); } catch (e) { return; } }
+            
             xhr.open('GET', 'data.json?t=' + new Date().getTime(), true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     try {
                         ALL_DATA = eval('(' + xhr.responseText + ')');
-                        statusDiv.innerHTML = "✅ 系統就緒 (資料總數: " + ALL_DATA.length + " 筆)";
-                    } catch(e) { statusDiv.innerHTML = "❌ 資料載入失敗"; }
+                        statusDiv.innerHTML = "● 系統連線成功"; // 低調的載入成功提示
+                    } catch(e) { statusDiv.innerHTML = "○ 連線異常"; }
                 }
             };
             xhr.send();
@@ -44,59 +67,52 @@
             CURRENT_RESULTS = [];
             for (var i = 0; i < ALL_DATA.length; i++) {
                 var row = ALL_DATA[i];
-                var match = true;
                 var rowStr = (row[0] + row[1] + row[2] + row[3]).toUpperCase();
+                var match = true;
                 for (var j = 0; j < q.length; j++) {
                     if (rowStr.indexOf(q[j]) == -1) { match = false; break; }
                 }
                 if (match) {
                     CURRENT_RESULTS.push(row);
-                    if (CURRENT_RESULTS.length >= 200) break; // 限制結果數量，避免排序時卡死
+                    if (CURRENT_RESULTS.length >= 100) break;
                 }
             }
             renderTable();
-            document.getElementById('status').innerHTML = "搜尋完成 (顯示前 " + CURRENT_RESULTS.length + " 筆，點擊標題可排序)";
+            document.getElementById('status').innerHTML = "查詢完成"; // 不顯示筆數
         }
 
         function sortData(idx) {
-            if(CURRENT_RESULTS.length == 0) return;
             var factor = SORT_STATE[idx];
             CURRENT_RESULTS.sort(function(a, b) {
-                var valA = a[idx];
-                var valB = b[idx];
-                // 判斷是否為數字字串 (如條碼)
-                if (!isNaN(valA) && !isNaN(valB)) {
-                    return (parseFloat(valA) - parseFloat(valB)) * factor;
-                }
-                return valA.localeCompare(valB) * factor;
+                var vA = a[idx], vB = b[idx];
+                return (isNaN(vA) ? vA.localeCompare(vB) : (parseFloat(vA) - parseFloat(vB))) * factor;
             });
-            SORT_STATE[idx] *= -1; // 切換下一次排序方向
+            SORT_STATE[idx] *= -1;
             renderTable();
         }
 
         function renderTable() {
-            var resDiv = document.getElementById('results');
-            var h = '<table border="1"><tr>';
-            h += '<th onclick="sortData(0)">部門 ↕</th>';
-            h += '<th onclick="sortData(1)">國際條碼 ↕</th>';
-            h += '<th onclick="sortData(2)">店內碼 ↕</th>';
-            h += '<th onclick="sortData(3)">完整品名 ↕</th></tr>';
+            var h = '<table><tr>';
+            h += '<th onclick="sortData(0)">部門</th>';
+            h += '<th onclick="sortData(1)">國碼</th>';
+            h += '<th onclick="sortData(2)">店內碼</th>';
+            h += '<th onclick="sortData(3)">品名</th></tr>';
             for (var k = 0; k < CURRENT_RESULTS.length; k++) {
                 var r = CURRENT_RESULTS[k];
                 h += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
             }
-            resDiv.innerHTML = h + '</table>';
+            document.getElementById('results').innerHTML = h + '</table>';
         }
     </script>
 </head>
 <body>
     <div class="container">
-        <h1 style="color:#d63384; margin:0 0 10px 0;">商品查詢器</h1>
-        <div>
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="輸入關鍵字 部門...">
-            <button type="button" onclick="doSearch()">查詢</button>
+        <h1>商品查詢器</h1>
+        <div class="search-box">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="請輸入關鍵字 部門..等">
+            <button onclick="doSearch()">查詢</button>
         </div>
-        <div id="status" class="status">初始化中...</div>
+        <div id="status" class="status">● 正在建立連線...</div>
         <div id="results"></div>
     </div>
 </body>
