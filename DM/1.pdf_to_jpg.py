@@ -1,120 +1,141 @@
 import fitz  # PyMuPDF
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
+from PIL import Image
 
-# --- HTML 模板 (保持不變) ---
+# --- 專業純淨版 HTML 模板 (黑底、大按鈕、無雜訊) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>門市電子 DM - 翻頁書模式</title>
+    <title>門市 DM 電子書</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
     <style>
-        body { background: #444; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
-        .header { color: white; margin-bottom: 15px; text-align: center; }
-        #book-viewport { width: 90vw; height: 80vh; display: flex; justify-content: center; align-items: center; }
+        body { background: #1a1a1a; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        .header { color: #fff; margin: 10px 0; font-size: 16px; opacity: 0.6; }
+        #book-viewport { position: relative; width: 95vw; height: 80vh; display: flex; justify-content: center; align-items: center; margin-top: 10px; }
         #flipbook { width: 1000px; height: 700px; }
-        .page { background-color: white; width: 500px; height: 700px; }
+        .page { background: white; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .page img { width: 100%; height: 100%; object-fit: contain; }
-        .btn-container { margin-top: 20px; display: flex; gap: 20px; }
-        button { padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background: #ffbe00; color: #333; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-        button:hover { background: #e6ac00; }
+        .btn-side { position: absolute; top: 0; width: 15%; height: 100%; border: none; background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.2); font-size: 60px; cursor: pointer; transition: 0.3s; z-index: 10; }
+        .btn-side:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .btn-prev-side { left: 0; text-align: left; padding-left: 20px; }
+        .btn-next-side { right: 0; text-align: right; padding-right: 20px; }
+        .controls { position: fixed; bottom: 30px; display: flex; gap: 30px; align-items: center; z-index: 20; }
+        .btn-main { padding: 15px 50px; font-size: 22px; font-weight: bold; cursor: pointer; border: none; border-radius: 50px; background: #ffbe00; color: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .btn-main:hover { background: #ffd04d; transform: scale(1.05); }
+        .page-num { color: #fff; font-size: 20px; font-weight: bold; min-width: 100px; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2 id="title">📖 門市最新活動 DM</h2>
-        <p style="color: #ccc; font-size: 14px;">(點擊邊角或按鈕翻頁)</p>
-    </div>
+    <div class="header">📖 點擊左右邊緣或按鈕翻頁</div>
     <div id="book-viewport">
+        <button class="btn-side btn-prev-side" onclick="$('#flipbook').turn('previous')">‹</button>
+        <button class="btn-side btn-next-side" onclick="$('#flipbook').turn('next')">›</button>
         <div id="flipbook">REPLACE_PAGES_HERE</div>
     </div>
-    <div class="btn-container">
-        <button onclick="$('#flipbook').turn('previous')">⬅️ 上一頁</button>
-        <button onclick="$('#flipbook').turn('next')">下一頁 ➡️</button>
+    <div class="controls">
+        <button class="btn-main" onclick="$('#flipbook').turn('previous')">⬅ 上一頁</button>
+        <div class="page-num"><span id="cp">1</span> / <span id="tp">TOTAL_COUNT</span></div>
+        <button class="btn-main" onclick="$('#flipbook').turn('next')">下一頁 ➡</button>
     </div>
     <script>
         $(window).ready(function() {
-            $('#flipbook').turn({ width: 1000, height: 700, autoCenter: true, duration: 800, gradients: true });
-        });
-        $(window).bind('keydown', function(e) {
-            if (e.keyCode == 37) $('#flipbook').turn('previous');
-            else if (e.keyCode == 39) $('#flipbook').turn('next');
+            var book = $('#flipbook');
+            book.turn({
+                width: 1000, height: 700, autoCenter: true, gradients: true, acceleration: true,
+                when: { turned: function(e, page) { $('#cp').text(page); } }
+            });
         });
     </script>
 </body>
 </html>
 """
 
-class PDFtoBookApp:
+class DM_BookMaker_Final:
     def __init__(self, root):
         self.root = root
-        self.root.title("門市 DM 翻頁書轉換工具 (修正版)")
-        self.root.geometry("400x250")
+        self.root.title("門市 DM 轉檔工具 - 終極穩定版")
+        self.root.geometry("500x350")
         
-        tk.Label(root, text="PDF 轉網頁電子書", font=("Arial", 14, "bold"), pady=10).pack()
+        frame = tk.Frame(root, padx=30, pady=30)
+        frame.pack(expand=True, fill="both")
+        
+        tk.Label(frame, text="專為 32 位元環境優化，支援損壞檔案跳過", font=("Arial", 10), fg="blue").pack()
+        
+        self.btn_run = tk.Button(frame, text="📂 選擇並轉換 PDF", command=self.process_pdf, 
+                                 bg="#28a745", fg="white", font=("Arial", 14, "bold"), 
+                                 padx=20, pady=15, relief="raised")
+        self.btn_run.pack(pady=20)
+        
+        self.status = tk.Label(frame, text="狀態：準備就緒", fg="gray")
+        self.status.pack(side="bottom")
 
-        frame_conf = tk.Frame(root)
-        frame_conf.pack(pady=10)
-        tk.Label(frame_conf, text="壓縮品質 (10-100):").grid(row=0, column=0)
-        self.quality_var = tk.IntVar(value=75)
-        self.quality_spin = tk.Spinbox(frame_conf, from_=10, to=100, textvariable=self.quality_var, width=5)
-        self.quality_spin.grid(row=0, column=1, padx=5)
-
-        self.btn_start = tk.Button(root, text="選擇 PDF 並開始轉換", bg="#28a745", fg="white", 
-                                  font=("Arial", 12, "bold"), padx=20, pady=10, command=self.process)
-        self.btn_start.pack(pady=20)
-        self.status_label = tk.Label(root, text="準備就緒", fg="gray")
-        self.status_label.pack()
-
-    def process(self):
-        pdf_path = filedialog.askopenfilename(title="請選擇 PDF DM", filetypes=[("PDF Files", "*.pdf")])
+    def process_pdf(self):
+        pdf_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf")])
         if not pdf_path: return
-
-        base_name = os.path.splitext(os.path.basename(pdf_path))[0]
-        output_dir = f"{base_name}_Flipbook"
-        if not os.path.exists(output_dir): os.makedirs(output_dir)
-
-        self.status_label.config(text="正在轉檔中...", fg="blue")
+        
+        folder_name = os.path.splitext(os.path.basename(pdf_path))[0] + "_WebBook"
+        if not os.path.exists(folder_name): os.makedirs(folder_name)
+        
+        self.status.config(text="正在處理中，請稍候...", fg="blue")
         self.root.update()
-
+        
         try:
             doc = fitz.open(pdf_path)
+            total_pages = len(doc)
             img_tags = ""
-            q = self.quality_var.get()
-            mat = fitz.Matrix(1.5, 1.5)
-
-            for i in range(len(doc)):
-                page = doc.load_page(i)
-                pix = page.get_pixmap(matrix=mat)
-                img_name = f"page_{i+1:03d}.jpg"
-                img_path = os.path.join(output_dir, img_name)
-                
-                # --- 關鍵修正處 ---
-                # 改用 jpg_quality 參數
-                pix.save(img_path, jpg_quality=q)
-                
-                img_tags += f'<div class="page"><img src="{img_name}"></div>\\n            '
+            success_count = 0
+            
+            for i in range(total_pages):
+                try:
+                    # 嘗試讀取這一頁
+                    page = doc.load_page(i)
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                    img_name = f"p_{i+1:03d}.jpg"
+                    img_path = os.path.join(folder_name, img_name)
+                    pix.save(img_path)
+                    
+                    # 圖片瘦身 (Resize & Compress)
+                    with Image.open(img_path) as img:
+                        if img.width > 1200:
+                            ratio = 1200 / float(img.width)
+                            new_height = int(float(img.height) * ratio)
+                            img = img.resize((1200, new_height), Image.LANCZOS)
+                        img.save(img_path, "JPEG", quality=85, optimize=True)
+                    
+                    img_tags += f'<div class="page"><img src="{img_name}"></div>\\n            '
+                    success_count += 1
+                    self.status.config(text=f"進度：{i+1} / {total_pages} 頁")
+                    self.root.update()
+                    
+                except:
+                    # 如果這一頁報錯 (語法錯誤等)，直接跳過不處理
+                    print(f"跳過損壞頁面: 第 {i+1} 頁")
+                    continue
             
             doc.close()
-
+            
+            # 生成 HTML
             final_html = HTML_TEMPLATE.replace("REPLACE_PAGES_HERE", img_tags)
-            with open(os.path.join(output_dir, "index.html"), "w", encoding="utf-8") as f:
+            final_html = final_html.replace("TOTAL_COUNT", str(success_count))
+            
+            with open(os.path.join(folder_name, "index.html"), "w", encoding="utf-8") as f:
                 f.write(final_html)
-
-            self.status_label.config(text="轉換成功！", fg="green")
-            messagebox.showinfo("完成", "已成功產出翻頁網頁！")
-            os.startfile(output_dir)
-
+            
+            self.status.config(text="處理完成！", fg="green")
+            messagebox.showinfo("成功", f"轉換完成！\\n總共處理了 {success_count} 頁。")
+            os.startfile(folder_name)
+            
         except Exception as e:
-            self.status_label.config(text="轉換出錯", fg="red")
-            messagebox.showerror("錯誤", f"轉換過程中發生問題：\\n{str(e)}")
+            messagebox.showerror("嚴重錯誤", f"程式無法開啟此檔案：\\n{str(e)}")
+            self.status.config(text="轉換失敗", fg="red")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = PDFtoBookApp(root)
+    app = DM_BookMaker_Final(root)
     root.mainloop()

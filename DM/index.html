@@ -4,40 +4,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>門市電子 DM - 翻頁書模式</title>
+    <title>門市 DM 電子書</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
     <style>
-        body { background: #444; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
-        .header { color: white; margin-bottom: 15px; text-align: center; }
-        #book-viewport { width: 90vw; height: 80vh; display: flex; justify-content: center; align-items: center; }
+        body { background: #1a1a1a; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; font-family: sans-serif; overflow: hidden; }
+        .header { color: #fff; margin: 10px 0; font-size: 16px; opacity: 0.6; }
+        #book-viewport { position: relative; width: 95vw; height: 80vh; display: flex; justify-content: center; align-items: center; margin-top: 10px; }
         #flipbook { width: 1000px; height: 700px; }
-        .page { background-color: white; width: 500px; height: 700px; }
+        .page { background: white; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
         .page img { width: 100%; height: 100%; object-fit: contain; }
-        .btn-container { margin-top: 20px; display: flex; gap: 20px; }
-        button { padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background: #ffbe00; color: #333; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-        button:hover { background: #e6ac00; }
+        .btn-side { position: absolute; top: 0; width: 15%; height: 100%; border: none; background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.2); font-size: 60px; cursor: pointer; transition: 0.3s; z-index: 10; }
+        .btn-side:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .btn-prev-side { left: 0; text-align: left; padding-left: 20px; }
+        .btn-next-side { right: 0; text-align: right; padding-right: 20px; }
+        .controls { position: fixed; bottom: 30px; display: flex; gap: 30px; align-items: center; z-index: 20; }
+        .btn-main { padding: 15px 50px; font-size: 22px; font-weight: bold; cursor: pointer; border: none; border-radius: 50px; background: #ffbe00; color: #000; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .btn-main:hover { background: #ffd04d; transform: scale(1.05); }
+        .page-num { color: #fff; font-size: 20px; font-weight: bold; min-width: 100px; text-align: center; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h2 id="title">📖 門市最新活動 DM</h2>
-        <p style="color: #ccc; font-size: 14px;">(點擊邊角或按鈕翻頁)</p>
-    </div>
+    <div class="header">📖 點擊左右邊緣或按鈕翻頁</div>
     <div id="book-viewport">
-        <div id="flipbook"><div class="page"><img src="page_001.jpg"></div>\n            <div class="page"><img src="page_002.jpg"></div>\n            <div class="page"><img src="page_003.jpg"></div>\n            <div class="page"><img src="page_004.jpg"></div>\n            <div class="page"><img src="page_005.jpg"></div>\n            <div class="page"><img src="page_006.jpg"></div>\n            <div class="page"><img src="page_007.jpg"></div>\n            <div class="page"><img src="page_008.jpg"></div>\n            <div class="page"><img src="page_009.jpg"></div>\n            <div class="page"><img src="page_010.jpg"></div>\n            <div class="page"><img src="page_011.jpg"></div>\n            <div class="page"><img src="page_012.jpg"></div>\n            <div class="page"><img src="page_013.jpg"></div>\n            <div class="page"><img src="page_014.jpg"></div>\n            <div class="page"><img src="page_015.jpg"></div>\n            <div class="page"><img src="page_016.jpg"></div>\n            <div class="page"><img src="page_017.jpg"></div>\n            <div class="page"><img src="page_018.jpg"></div>\n            <div class="page"><img src="page_019.jpg"></div>\n            <div class="page"><img src="page_020.jpg"></div>\n            <div class="page"><img src="page_021.jpg"></div>\n            <div class="page"><img src="page_022.jpg"></div>\n            <div class="page"><img src="page_023.jpg"></div>\n            <div class="page"><img src="page_024.jpg"></div>\n            <div class="page"><img src="page_025.jpg"></div>\n            <div class="page"><img src="page_026.jpg"></div>\n            <div class="page"><img src="page_027.jpg"></div>\n            <div class="page"><img src="page_028.jpg"></div>\n            <div class="page"><img src="page_029.jpg"></div>\n            <div class="page"><img src="page_030.jpg"></div>\n            <div class="page"><img src="page_031.jpg"></div>\n            <div class="page"><img src="page_032.jpg"></div>\n            </div>
+        <button class="btn-side btn-prev-side" onclick="$('#flipbook').turn('previous')">‹</button>
+        <button class="btn-side btn-next-side" onclick="$('#flipbook').turn('next')">›</button>
+        <div id="flipbook"><div class="page"><img src="p_001.jpg"></div>\n            <div class="page"><img src="p_002.jpg"></div>\n            <div class="page"><img src="p_003.jpg"></div>\n            <div class="page"><img src="p_004.jpg"></div>\n            <div class="page"><img src="p_005.jpg"></div>\n            <div class="page"><img src="p_006.jpg"></div>\n            <div class="page"><img src="p_007.jpg"></div>\n            <div class="page"><img src="p_008.jpg"></div>\n            <div class="page"><img src="p_009.jpg"></div>\n            <div class="page"><img src="p_010.jpg"></div>\n            <div class="page"><img src="p_011.jpg"></div>\n            <div class="page"><img src="p_012.jpg"></div>\n            <div class="page"><img src="p_013.jpg"></div>\n            <div class="page"><img src="p_014.jpg"></div>\n            <div class="page"><img src="p_015.jpg"></div>\n            <div class="page"><img src="p_016.jpg"></div>\n            <div class="page"><img src="p_017.jpg"></div>\n            <div class="page"><img src="p_018.jpg"></div>\n            <div class="page"><img src="p_019.jpg"></div>\n            <div class="page"><img src="p_020.jpg"></div>\n            <div class="page"><img src="p_021.jpg"></div>\n            <div class="page"><img src="p_022.jpg"></div>\n            <div class="page"><img src="p_023.jpg"></div>\n            <div class="page"><img src="p_024.jpg"></div>\n            <div class="page"><img src="p_025.jpg"></div>\n            <div class="page"><img src="p_026.jpg"></div>\n            <div class="page"><img src="p_027.jpg"></div>\n            <div class="page"><img src="p_028.jpg"></div>\n            <div class="page"><img src="p_029.jpg"></div>\n            <div class="page"><img src="p_030.jpg"></div>\n            <div class="page"><img src="p_031.jpg"></div>\n            <div class="page"><img src="p_032.jpg"></div>\n            </div>
     </div>
-    <div class="btn-container">
-        <button onclick="$('#flipbook').turn('previous')">⬅️ 上一頁</button>
-        <button onclick="$('#flipbook').turn('next')">下一頁 ➡️</button>
+    <div class="controls">
+        <button class="btn-main" onclick="$('#flipbook').turn('previous')">⬅ 上一頁</button>
+        <div class="page-num"><span id="cp">1</span> / <span id="tp">32</span></div>
+        <button class="btn-main" onclick="$('#flipbook').turn('next')">下一頁 ➡</button>
     </div>
     <script>
         $(window).ready(function() {
-            $('#flipbook').turn({ width: 1000, height: 700, autoCenter: true, duration: 800, gradients: true });
-        });
-        $(window).bind('keydown', function(e) {
-            if (e.keyCode == 37) $('#flipbook').turn('previous');
-            else if (e.keyCode == 39) $('#flipbook').turn('next');
+            var book = $('#flipbook');
+            book.turn({
+                width: 1000, height: 700, autoCenter: true, gradients: true, acceleration: true,
+                when: { turned: function(e, page) { $('#cp').text(page); } }
+            });
         });
     </script>
 </body>
