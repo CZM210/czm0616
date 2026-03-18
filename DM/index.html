@@ -1,0 +1,44 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>門市電子 DM - 翻頁書模式</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/blasten/turn.js/turn.min.js"></script>
+    <style>
+        body { background: #444; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: "Microsoft JhengHei", sans-serif; }
+        .header { color: white; margin-bottom: 15px; text-align: center; }
+        #book-viewport { width: 90vw; height: 80vh; display: flex; justify-content: center; align-items: center; }
+        #flipbook { width: 1000px; height: 700px; }
+        .page { background-color: white; width: 500px; height: 700px; }
+        .page img { width: 100%; height: 100%; object-fit: contain; }
+        .btn-container { margin-top: 20px; display: flex; gap: 20px; }
+        button { padding: 12px 25px; font-size: 16px; cursor: pointer; border-radius: 8px; border: none; background: #ffbe00; color: #333; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        button:hover { background: #e6ac00; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2 id="title">📖 門市最新活動 DM</h2>
+        <p style="color: #ccc; font-size: 14px;">(點擊邊角或按鈕翻頁)</p>
+    </div>
+    <div id="book-viewport">
+        <div id="flipbook"><div class="page"><img src="page_001.jpg"></div>\n            <div class="page"><img src="page_002.jpg"></div>\n            <div class="page"><img src="page_003.jpg"></div>\n            <div class="page"><img src="page_004.jpg"></div>\n            <div class="page"><img src="page_005.jpg"></div>\n            <div class="page"><img src="page_006.jpg"></div>\n            <div class="page"><img src="page_007.jpg"></div>\n            <div class="page"><img src="page_008.jpg"></div>\n            <div class="page"><img src="page_009.jpg"></div>\n            <div class="page"><img src="page_010.jpg"></div>\n            <div class="page"><img src="page_011.jpg"></div>\n            <div class="page"><img src="page_012.jpg"></div>\n            <div class="page"><img src="page_013.jpg"></div>\n            <div class="page"><img src="page_014.jpg"></div>\n            <div class="page"><img src="page_015.jpg"></div>\n            <div class="page"><img src="page_016.jpg"></div>\n            <div class="page"><img src="page_017.jpg"></div>\n            <div class="page"><img src="page_018.jpg"></div>\n            <div class="page"><img src="page_019.jpg"></div>\n            <div class="page"><img src="page_020.jpg"></div>\n            <div class="page"><img src="page_021.jpg"></div>\n            <div class="page"><img src="page_022.jpg"></div>\n            <div class="page"><img src="page_023.jpg"></div>\n            <div class="page"><img src="page_024.jpg"></div>\n            <div class="page"><img src="page_025.jpg"></div>\n            <div class="page"><img src="page_026.jpg"></div>\n            <div class="page"><img src="page_027.jpg"></div>\n            <div class="page"><img src="page_028.jpg"></div>\n            <div class="page"><img src="page_029.jpg"></div>\n            <div class="page"><img src="page_030.jpg"></div>\n            <div class="page"><img src="page_031.jpg"></div>\n            <div class="page"><img src="page_032.jpg"></div>\n            </div>
+    </div>
+    <div class="btn-container">
+        <button onclick="$('#flipbook').turn('previous')">⬅️ 上一頁</button>
+        <button onclick="$('#flipbook').turn('next')">下一頁 ➡️</button>
+    </div>
+    <script>
+        $(window).ready(function() {
+            $('#flipbook').turn({ width: 1000, height: 700, autoCenter: true, duration: 800, gradients: true });
+        });
+        $(window).bind('keydown', function(e) {
+            if (e.keyCode == 37) $('#flipbook').turn('previous');
+            else if (e.keyCode == 39) $('#flipbook').turn('next');
+        });
+    </script>
+</body>
+</html>
