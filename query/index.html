@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="manifest" href="manifest.json">
-    <title>POYA 商品查詢</title>
+    <title>商品查詢器</title>
     <style>
         :root { --poya: #d63384; --border: #eee; }
         body { font-family: -apple-system, "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -50,7 +50,7 @@
                         try {
                             // 改用 JSON.parse 捨棄危險的 eval
                             ALL = JSON.parse(xhr.responseText);
-                            statusTag.innerHTML = "系統就緒 (共 " + ALL.length + " 筆)";
+                            statusTag.innerHTML = "系統就緒";
                         } catch (e) {
                             statusTag.innerHTML = "❌ 資料格式錯誤，請檢查 data.json";
                         }
