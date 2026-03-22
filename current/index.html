@@ -16,7 +16,7 @@
 <body>
     <div id="auth-overlay">
         <div class="card">
-            <h2>?? 系統授權驗證</h2>
+            <h2>系統授權驗證</h2>
             <p style="color:#aaa; font-size:14px;">驗證成功後 1 小時內免登入</p>
             <input type="password" id="pw" placeholder="輸入授權密碼" autofocus>
             <button id="btn" onclick="verify()">確認進入</button>
@@ -59,7 +59,7 @@
 
             try {
                 // 完全對應你的 GAS 參數名稱：password, url, ip, device
-                const fetchUrl = `https://script.google.com/macros/s/AKfycbKU5oPRRYO3MLzGbJKCVNTued7gmZYxh1srNYJcjhUyJ1RGsoQ5T8uqaLSdownmjxO/exec?password=${encodeURIComponent(input)}&url=${encodeURIComponent(currentUrl)}&ip=${encodeURIComponent(ip)}&device=${encodeURIComponent(ua)}`;
+                const fetchUrl = `AKfycby3JhPngA_Dyqf_Md-evaRrHHt-GKK4kP3SMVpjlLM-SUuxc-5__8L0k9VZhPgkz8iGTQ?password=${encodeURIComponent(input)}&url=${encodeURIComponent(currentUrl)}&ip=${encodeURIComponent(ip)}&device=${encodeURIComponent(ua)}`;
                 
                 const response = await fetch(fetchUrl);
                 const result = await response.json();
