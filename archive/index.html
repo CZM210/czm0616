@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歷史承租</title>
+    <style>
+        :root {
+            --primary-color: #003366; --accent-color: #28a745;
+            --history-color: #a0a0a0; --bg-color: #f8f9fa; --card-bg: #ffffff;
+        }
+        body { font-family: sans-serif; background: var(--bg-color); margin: 0; display: flex; flex-direction: column; align-items: center; }
+        header { background: var(--primary-color); color: white; width: 100%; padding: 25px 0; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        header h1 { margin: 0; font-size: 22px; letter-spacing: 2px; }
+        .container { width: 90%; max-width: 500px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .card {
+            background: var(--card-bg); border-radius: 12px; padding: 20px; text-decoration: none;
+            display: flex; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border-left: 8px solid var(--primary-color); transition: 0.1s;
+        }
+        .card:active { transform: scale(0.97); background-color: #f0f0f0; }
+        .card .icon { font-size: 28px; margin-right: 15px; }
+        .card .info h3 { margin: 0; font-size: 18px; color: var(--primary-color); font-weight: bold; }
+        .card .info p { margin: 4px 0 0; color: #555; font-size: 14px; }
+
+        .spacer { height: 20px; border-bottom: 1px dashed #ccc; margin-bottom: 5px; }
+
+        .history-card {
+            background: var(--card-bg); border-radius: 8px; padding: 10px 20px;
+            text-decoration: none; display: flex; align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03); border-left: 6px solid var(--history-color);
+            opacity: 0.8; transition: 0.1s;
+        }
+        .history-card:active { background-color: #eee; }
+        .history-card .icon { font-size: 20px; margin-right: 15px; opacity: 0.6; }
+        .history-card .info h3 { margin: 0; font-size: 15px; color: #666; }
+    </style>
+</head>
+<body>
+<header><h1>歷史承租</h1></header>
+<div class="container">
+    <a href="archive/202603/index.html" class="card">
+        <div class="icon">📁</div>
+        <div class="info"><h3>1.202603檔</h3><p>202603檔_0311更新</p></div>
+    </a>
+
+    <a href="archive/202602/index.html" class="card" style="border-left-color: var(--accent-color);">
+        <div class="icon">📁</div>
+        <div class="info"><h3>2.202602</h3><p>202602檔</p></div>
+    </a>
+
+    <a href="archive/202601/index.html" class="card" style="border-left-color: var(--accent-color);">
+        <div class="icon">📁</div>
+        <div class="info"><h3>1.202601</h3><p>202601檔</p></div>
+    </a>
+
+    <div class="spacer"></div>
+    <a href="archive/202603/index.html" class="history-card">
+        <div class="icon">📁</div>
+        <div class="info"><h3>4. 歷史承租 (僅供上檔資料)</h3><p>沒事不用特別點進來..</p></div>
+    </a>
+</div>
+<p style="margin-top: 40px; color: #bbb; font-size: 11px;">Powered by Store Management System © 2026</p>
+</body>
+</html>
