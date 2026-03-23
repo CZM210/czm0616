@@ -3,11 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>POYA 商品助理 (計數版)</title>
+    <title>POYA 商品助理 (修正版)</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         
+        /* 置頂區域 */
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; }
         input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
@@ -20,25 +21,25 @@
         .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
 
-        /* 清單基本行 */
-        .item-row { padding: 12px 10px; border-bottom: 1px solid var(--border); position: relative; display: flex; align-items: flex-start; }
-        .info-content { flex-grow: 1; overflow: hidden; padding-right: 50px; } /* 預留空間給按鈕 */
+        /* 清單列表樣式 */
+        .item-row { padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; position: relative; }
+        .info-content { flex: 1; overflow: hidden; padding-right: 60px; } 
 
         .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; }
         .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; }
         .v-dept { width: 45px; } .v-global { width: 125px; } .v-store { flex-grow: 1; }
 
-        /* 暫存按鈕 */
-        .btn-action { position: absolute; right: 10px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 5px 8px; border-radius: 4px; font-size: 12px; }
+        /* 暫存與動作按鈕 */
+        .btn-action { position: absolute; right: 10px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px; }
+        .btn-action.done { background: #4caf50; } /* 存好變綠色 */
         .btn-del { background: #999; }
 
-        /* 數量控制器 (放在前面) */
-        .qty-wrapper { display: flex; align-items: center; margin-right: 12px; padding-top: 2px; flex-shrink: 0; }
-        .qty-btn { width: 28px; height: 28px; border: 1px solid #ddd; background: #fff; border-radius: 4px; font-weight: bold; cursor: pointer; color: var(--poya); font-size: 18px; line-height: 24px; text-align: center; }
-        .qty-num { width: 35px; text-align: center; font-size: 16px; font-weight: bold; color: #333; }
+        /* 暫存頁面專用：數量控制器 */
+        .qty-wrapper { display: flex; align-items: center; margin-right: 12px; flex-shrink: 0; padding-top: 2px; }
+        .qty-btn { width: 30px; height: 30px; border: 1px solid #ddd; background: #fff; border-radius: 4px; font-weight: bold; color: var(--poya); font-size: 20px; text-align: center; line-height: 26px; }
+        .qty-num { width: 40px; text-align: center; font-size: 18px; font-weight: bold; color: #333; }
 
-        /* Memo 框 */
-        .memo-box { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; background: var(--bg-memo); }
+        .memo-box { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; background: var(--bg-memo); min-height: 40px; }
 
         .status-bar { padding: 4px; text-align: center; font-size: 12px; color: #999; background: #f5f5f5; }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
@@ -47,7 +48,8 @@
     
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
-        var MEMO_DATA = JSON.parse(localStorage.getItem('poya_memo_v2') || '{}');
+        // 儲存版本改為 v3 確保邏輯乾淨
+        var MEMO_DATA = JSON.parse(localStorage.getItem('poya_memo_v3') || '{}');
 
         window.onload = function() {
             var xhr = new XMLHttpRequest();
@@ -55,7 +57,7 @@
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
-                    document.getElementById('status').innerHTML = "系統就緒";
+                    document.getElementById('status').innerHTML = "就緒";
                 }
             };
             xhr.send();
@@ -88,29 +90,32 @@
                 if (m) { CUR.push(r); if (CUR.length >= 100) break; }
             }
             renderSearch();
+            window.scrollTo(0,0);
         }
 
-        function saveItem(idx) {
-            var item = CUR[idx];
-            var barcode = item[1];
+        function saveItem(idx, btn) {
+            var r = CUR[idx];
+            var barcode = r[1];
             if(!MEMO_DATA[barcode]) {
-                // 預設數量設為 1
-                MEMO_DATA[barcode] = { dept: item[0], barcode: item[1], store: item[2], name: item[3], note: "", qty: 1 };
+                MEMO_DATA[barcode] = { dept: r[0], barcode: r[1], store: r[2], name: r[3], note: "", qty: 1 };
                 syncStorage();
-                alert("已加入暫存");
-            } else { alert("此商品已在清單中"); }
+                btn.innerHTML = "已存";
+                btn.classList.add('done');
+            } else {
+                alert("此商品已在清單中");
+            }
         }
 
         function changeQty(barcode, delta) {
             if(MEMO_DATA[barcode]) {
-                MEMO_DATA[barcode].qty = (MEMO_DATA[barcode].qty || 0) + delta;
+                MEMO_DATA[barcode].qty += delta;
                 syncStorage();
                 renderMemoPage();
             }
         }
 
         function removeMemo(barcode) {
-            if(confirm('移除此商品？')) {
+            if(confirm('確定移除？')) {
                 delete MEMO_DATA[barcode];
                 syncStorage();
                 renderMemoPage();
@@ -118,12 +123,14 @@
         }
 
         function updateNote(barcode, text) {
-            MEMO_DATA[barcode].note = text;
-            syncStorage();
+            if(MEMO_DATA[barcode]) {
+                MEMO_DATA[barcode].note = text;
+                localStorage.setItem('poya_memo_v3', JSON.stringify(MEMO_DATA));
+            }
         }
 
         function syncStorage() {
-            localStorage.setItem('poya_memo_v2', JSON.stringify(MEMO_DATA));
+            localStorage.setItem('poya_memo_v3', JSON.stringify(MEMO_DATA));
             updateMemoBadge();
         }
 
@@ -136,10 +143,13 @@
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3];
                 for(var j=0; j<q.length; j++) { if(q[j]) name = name.replace(new RegExp("("+q[j]+")", "gi"), '<span class="highlight">$1</span>'); }
+                var isSaved = MEMO_DATA[r[1]] ? 'done' : '';
+                var btnText = MEMO_DATA[r[1]] ? '已存' : '暫存';
+
                 h += '<div class="item-row"><div class="info-content">';
                 h += '<span class="item-name">' + name + '</span>';
                 h += '<div class="meta-line"><div class="v-dept">' + r[0] + '</div><div class="v-global">' + r[1] + '</div><div class="v-store">' + r[2] + '</div></div>';
-                h += '</div><button class="btn-action" onclick="saveItem('+i+')">暫存</button></div>';
+                h += '</div><button class="btn-action '+isSaved+'" onclick="saveItem('+i+', this)">'+btnText+'</button></div>';
             }
             document.getElementById('results').innerHTML = h;
             document.getElementById('status').innerHTML = "結果: " + CUR.length + " 筆";
@@ -147,24 +157,25 @@
 
         function renderMemoPage() {
             var h = '', keys = Object.keys(MEMO_DATA);
-            if(keys.length === 0) h = '<div style="padding:40px;text-align:center;color:#999;">暫存清單是空的</div>';
-            for (var i = 0; i < keys.keys.length; i++) {
-                var r = MEMO_DATA[keys[i]];
-                h += '<div class="item-row">';
-                // 數量控制器：放在最前面
-                h += '<div class="qty-wrapper">';
-                h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', -1)">-</button>';
-                h += '<div class="qty-num">' + r.qty + '</div>';
-                h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', 1)">+</button>';
-                h += '</div>';
-                
-                h += '<div class="info-content">';
-                h += '<span class="item-name">' + r.name + '</span>';
-                h += '<div class="meta-line"><div class="v-dept">' + r.dept + '</div><div class="v-global">' + r.barcode + '</div><div class="v-store">' + r.store + '</div></div>';
-                h += '<textarea class="memo-box" placeholder="備註..." oninput="updateNote(\''+r.barcode+'\', this.value)">' + r.note + '</textarea>';
-                h += '</div>';
-                h += '<button class="btn-action btn-del" onclick="removeMemo(\''+r.barcode+'\')">移除</button>';
-                h += '</div>';
+            if(keys.length === 0) {
+                h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
+            } else {
+                for (var i = 0; i < keys.length; i++) { // 修正了這裡的 keys.keys.length
+                    var r = MEMO_DATA[keys[i]];
+                    h += '<div class="item-row">';
+                    h += '<div class="qty-wrapper">';
+                    h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', -1)">-</button>';
+                    h += '<div class="qty-num">' + r.qty + '</div>';
+                    h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', 1)">+</button>';
+                    h += '</div>';
+                    h += '<div class="info-content">';
+                    h += '<span class="item-name">' + r.name + '</span>';
+                    h += '<div class="meta-line"><div class="v-dept">' + r.dept + '</div><div class="v-global">' + r.barcode + '</div><div class="v-store">' + r.store + '</div></div>';
+                    h += '<textarea class="memo-box" placeholder="備註..." oninput="updateNote(\''+r.barcode+'\', this.value)">' + r.note + '</textarea>';
+                    h += '</div>';
+                    h += '<button class="btn-action btn-del" onclick="removeMemo(\''+r.barcode+'\')">移除</button>';
+                    h += '</div>';
+                }
             }
             document.getElementById('memo-results').innerHTML = h;
         }
@@ -186,14 +197,14 @@
         </div>
         <div class="nav-row">
             <button id="btn-search-mode" class="nav-btn active" onclick="switchMode('search')">商品搜尋</button>
-            <button id="btn-memo-mode" class="nav-btn" onclick="switchMode('memo')">我的暫存 (<span id="memo-count">0</span>)</button>
+            <button id="btn-memo-mode" class="nav-btn" onclick="switchMode('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
         </div>
         <div id="search-ui">
             <div class="sort-row">
-                <button class="sort-btn" onclick="sort(0)">部門</button>
-                <button class="sort-btn" onclick="sort(1)">國碼</button>
-                <button class="sort-btn" onclick="sort(2)">店碼</button>
-                <button class="sort-btn" onclick="sort(3)">品名</button>
+                <button class="sort-btn" onclick="sort(0)">部門 ↕</button>
+                <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
+                <button class="sort-btn" onclick="sort(2)">店碼 ↕</button>
+                <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
             <div id="status" class="status-bar">就緒</div>
         </div>
