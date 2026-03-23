@@ -8,67 +8,57 @@
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         
-        /* 固定頂部 */
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; }
         input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
         .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 5px; }
 
-        .nav-row { display: flex; background: #f9f9f9; border-bottom: 1px solid var(--border); }
-        .nav-btn { flex: 1; padding: 10px 0; font-size: 14px; color: #555; border: none; background: none; font-weight: bold; cursor: pointer; }
-        .nav-btn.active { color: var(--poya); border-bottom: 3px solid var(--poya); }
+        /* 模式切換 */
+        .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
+        .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; }
+        .nav-btn.active { color: var(--poya); border-bottom: 3px solid var(--poya); background: #fdf2f7; }
 
+        /* 排序表頭 */
         .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
 
-        /* 清單共通樣式 */
-        .item-card { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; }
-
-        /* 搜尋結果版面 */
-        .search-layout { display: flex; justify-content: space-between; align-items: flex-start; }
-        .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 85%; }
-        .meta-line { font-size: 14px; color: #666; font-family: "Courier New", monospace; display: flex; }
-        .v-dept { width: 50px; flex-shrink: 0; } .v-global { width: 130px; flex-shrink: 0; } .v-store { flex-grow: 1; }
-
-        /* 暫存按鈕 */
-        .btn-action { background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 13px; }
-        .btn-action.done { background: #4caf50; }
-
-        /* 暫存清單卡片版面 */
-        .memo-layout { display: flex; flex-direction: column; }
-        .memo-top-line { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        /* 商品卡片樣式 */
+        .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; }
+        .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 80%; }
+        .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 10px; }
         
-        /* 數量控制器 (左側) */
-        .qty-box { display: flex; align-items: center; margin-right: 12px; }
-        .qty-btn { width: 30px; height: 30px; border: 1px solid #ddd; background: #fff; border-radius: 4px; font-weight: bold; color: var(--poya); font-size: 20px; text-align: center; line-height: 26px; }
-        .qty-num { width: 35px; text-align: center; font-size: 18px; font-weight: bold; color: #000; }
+        /* 數量控制器 (暫存頁專用) */
+        .qty-box { display: flex; align-items: center; margin-right: 10px; float: left; }
+        .qty-btn { width: 28px; height: 28px; border: 1px solid #ddd; background: #fff; border-radius: 4px; font-weight: bold; color: var(--poya); font-size: 20px; line-height: 24px; text-align: center; }
+        .qty-num { width: 30px; text-align: center; font-size: 18px; font-weight: bold; }
 
-        /* 逐筆刪除鈕 (灰色) */
-        .btn-remove { background: #999; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; flex-shrink: 0; }
+        /* 動作按鈕 */
+        .btn-action { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 10px; border-radius: 4px; font-size: 12px; }
+        .btn-done { background: #4caf50; }
+        .btn-remove { background: #999; }
 
-        /* 備註輸入框 */
-        .memo-input { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; background: var(--bg-memo); }
-
-        .status-bar { padding: 4px; text-align: center; font-size: 12px; color: #999; background: #f5f5f5; }
+        .memo-box { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box; background: var(--bg-memo); }
+        .status-bar { padding: 5px; text-align: center; font-size: 12px; color: #999; background: #f9f9f9; border-bottom: 1px solid var(--border); }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
         .hidden { display: none; }
+        .clearfix::after { content: ""; display: table; clear: both; }
     </style>
     
     <script type="text/javascript">
-        var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
-        var MEMO_MAP = JSON.parse(localStorage.getItem('poya_v5') || '{}');
+        var ALL_DATA = [], SEARCH_RESULTS = [], DIR = [1, 1, 1, 1];
+        var MEMO_MAP = JSON.parse(localStorage.getItem('poya_memo_final') || '{}');
 
         window.onload = function() {
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?t=' + new Date().getTime(), true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
-                    ALL = eval('(' + xhr.responseText + ')');
+                    ALL_DATA = eval('(' + xhr.responseText + ')');
                     document.getElementById('status').innerHTML = "系統就緒";
                 }
             };
             xhr.send();
-            updateCount();
+            updateBadge();
         };
 
         function switchMode(m) {
@@ -76,13 +66,13 @@
             if(m === 'search') {
                 document.getElementById('search-ui').classList.remove('hidden');
                 document.getElementById('memo-ui').classList.add('hidden');
-                document.getElementById('btn-search-mode').classList.add('active');
+                document.getElementById('btn-search-tab').classList.add('active');
                 renderSearch();
             } else {
                 document.getElementById('search-ui').classList.add('hidden');
                 document.getElementById('memo-ui').classList.remove('hidden');
-                document.getElementById('btn-memo-mode').classList.add('active');
-                renderMemoList();
+                document.getElementById('btn-memo-tab').classList.add('active');
+                renderMemo();
             }
         }
 
@@ -90,103 +80,101 @@
             var val = document.getElementById('q').value.toUpperCase();
             if(!val) return;
             var q = val.split(' ');
-            CUR = [];
-            for (var i = 0; i < ALL.length; i++) {
-                var r = ALL[i], t = (r[0]+r[1]+r[2]+r[3]).toUpperCase(), m = true;
+            SEARCH_RESULTS = [];
+            for (var i = 0; i < ALL_DATA.length; i++) {
+                var r = ALL_DATA[i], t = (r[0]+r[1]+r[2]+r[3]).toUpperCase(), m = true;
                 for (var j = 0; j < q.length; j++) { if (t.indexOf(q[j]) == -1) { m = false; break; } }
-                if (m) { CUR.push(r); if (CUR.length >= 100) break; }
+                if (m) { SEARCH_RESULTS.push(r); if (SEARCH_RESULTS.length >= 100) break; }
             }
             renderSearch();
             window.scrollTo(0,0);
         }
 
-        function save(idx, btn) {
-            var r = CUR[idx];
-            if(!MEMO_MAP[r[1]]) {
-                MEMO_MAP[r[1]] = { dept: r[0], global: r[1], store: r[2], name: r[3], note: "", qty: 1 };
-                sync();
+        function addToMemo(idx, btn) {
+            var r = SEARCH_RESULTS[idx];
+            var barcode = r[1];
+            if(!MEMO_MAP[barcode]) {
+                MEMO_MAP[barcode] = { dept: r[0], barcode: r[1], store: r[2], name: r[3], note: "", qty: 1 };
+                saveSync();
                 btn.innerHTML = "已存";
-                btn.classList.add('done');
+                btn.classList.add('btn-done');
             } else { alert("已在清單中"); }
         }
 
         function changeQty(id, delta) {
             if(MEMO_MAP[id]) {
                 MEMO_MAP[id].qty += delta;
-                sync();
-                renderMemoList();
+                saveSync();
+                renderMemo();
             }
         }
 
         function updateNote(id, txt) {
             if(MEMO_MAP[id]) {
                 MEMO_MAP[id].note = txt;
-                localStorage.setItem('poya_v5', JSON.stringify(MEMO_MAP));
+                localStorage.setItem('poya_memo_final', JSON.stringify(MEMO_MAP));
             }
         }
 
         function removeItem(id) {
-            if(confirm('確定移除此筆商品？')) {
+            if(confirm('移除此商品？')) {
                 delete MEMO_MAP[id];
-                sync();
-                renderMemoList();
+                saveSync();
+                renderMemo();
             }
         }
 
-        function sync() {
-            localStorage.setItem('poya_v5', JSON.stringify(MEMO_MAP));
-            updateCount();
+        function saveSync() {
+            localStorage.setItem('poya_memo_final', JSON.stringify(MEMO_MAP));
+            updateBadge();
         }
 
-        function updateCount() {
-            document.getElementById('memo-count').innerHTML = Object.keys(MEMO_MAP).length;
+        function updateBadge() {
+            var count = Object.keys(MEMO_MAP).length;
+            document.getElementById('memo-count').innerHTML = count;
         }
 
         function renderSearch() {
             var h = '', q = document.getElementById('q').value.toUpperCase().split(' ');
-            for (var i = 0; i < CUR.length; i++) {
-                var r = CUR[i], name = r[3];
+            for (var i = 0; i < SEARCH_RESULTS.length; i++) {
+                var r = SEARCH_RESULTS[i], name = r[3];
                 for(var j=0; j<q.length; j++) { if(q[j]) name = name.replace(new RegExp("("+q[j]+")", "gi"), '<span class="highlight">$1</span>'); }
-                var isSaved = MEMO_MAP[r[1]] ? 'done' : '';
                 var btnTxt = MEMO_MAP[r[1]] ? '已存' : '暫存';
-                h += '<div class="item-card search-layout"><div>';
+                var btnCls = MEMO_MAP[r[1]] ? 'btn-done' : '';
+                h += '<div class="item-row">';
                 h += '<span class="item-name">' + name + '</span>';
-                h += '<div class="meta-line"><div class="v-dept">' + r[0] + '</div><div class="v-global">' + r[1] + '</div><div class="v-store">' + r[2] + '</div></div>';
-                h += '</div><button class="btn-action '+isSaved+'" onclick="save('+i+', this)">'+btnTxt+'</button></div>';
+                h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div>' + r[2] + '</div></div>';
+                h += '<button class="btn-action '+btnCls+'" onclick="addToMemo('+i+', this)">'+btnTxt+'</button>';
+                h += '</div>';
             }
             document.getElementById('results').innerHTML = h;
-            document.getElementById('status').innerHTML = "結果: " + CUR.length + " 筆";
+            document.getElementById('status').innerHTML = "結果: " + SEARCH_RESULTS.length + " 筆";
         }
 
-        function renderMemoList() {
+        function renderMemo() {
             var h = '', keys = Object.keys(MEMO_MAP);
-            if(keys.length === 0) h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單為空</div>';
+            if(keys.length === 0) { h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>'; }
             for (var i = 0; i < keys.length; i++) {
                 var r = MEMO_MAP[keys[i]];
-                h += '<div class="item-card memo-layout">';
-                // 第一行：數量控制 + 品名 + 移除按鈕
-                h += '<div class="memo-top-line">';
+                h += '<div class="item-row clearfix">';
                 h += '<div class="qty-box">';
-                h += '<button class="qty-btn" onclick="changeQty(\''+r.global+'\',-1)">-</button>';
+                h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', -1)">-</button>';
                 h += '<div class="qty-num">' + r.qty + '</div>';
-                h += '<button class="qty-btn" onclick="changeQty(\''+r.global+'\',1)">+</button>';
+                h += '<button class="qty-btn" onclick="changeQty(\''+r.barcode+'\', 1)">+</button>';
                 h += '</div>';
-                h += '<div style="flex:1;overflow:hidden;margin-right:8px;"><span class="item-name" style="width:100%">' + r.name + '</span></div>';
-                h += '<button class="btn-remove" onclick="removeItem(\''+r.global+'\')">移除</button>';
-                h += '</div>';
-                // 第二行：數據對齊
-                h += '<div class="meta-line"><div class="v-dept">' + r.dept + '</div><div class="v-global">' + r.global + '</div><div class="v-store">' + r.store + '</div></div>';
-                // 第三行：備註框
-                h += '<textarea class="memo-input" placeholder="點擊輸入備註..." oninput="updateNote(\''+r.global+'\', this.value)">' + r.note + '</textarea>';
+                h += '<span class="item-name">' + r.name + '</span>';
+                h += '<div class="meta-line"><div>' + r.dept + '</div><div>' + r.barcode + '</div><div>' + r.store + '</div></div>';
+                h += '<button class="btn-action btn-remove" onclick="removeItem(\''+r.barcode+'\')">移除</button>';
+                h += '<textarea class="memo-box" placeholder="點擊輸入備註..." oninput="updateNote(\''+r.barcode+'\', this.value)">' + r.note + '</textarea>';
                 h += '</div>';
             }
             document.getElementById('memo-results').innerHTML = h;
         }
 
         function sort(idx) {
-            if(CUR.length == 0) return;
+            if(SEARCH_RESULTS.length == 0) return;
             var f = DIR[idx];
-            CUR.sort(function(a, b) { var vA = a[idx], vB = b[idx]; return (isNaN(vA) ? vA.localeCompare(vB) : (vA - vB)) * f; });
+            SEARCH_RESULTS.sort(function(a, b) { var vA = a[idx], vB = b[idx]; return (isNaN(vA) ? vA.localeCompare(vB) : (vA - vB)) * f; });
             DIR[idx] *= -1;
             renderSearch();
         }
@@ -199,8 +187,8 @@
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
-            <button id="btn-search-mode" class="nav-btn active" onclick="switchMode('search')">搜尋結果</button>
-            <button id="btn-memo-mode" class="nav-btn" onclick="switchMode('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
+            <button id="btn-search-tab" class="nav-btn active" onclick="switchMode('search')">搜尋結果</button>
+            <button id="btn-memo-tab" class="nav-btn" onclick="switchMode('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
         </div>
         <div id="search-ui">
             <div class="sort-row">
