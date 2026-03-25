@@ -18,7 +18,7 @@
     <div id="auth-overlay">
         <div class="card">
             <h2 style="margin:0 0 10px 0;">系統授權驗證</h2>
-            <p style="color:#aaa; font-size:14px; margin:0;">成功後 1 小時內免重複輸入</p>
+            <p style="color:#aaa; font-size:14px; margin:0;">2026.04檔_V3.25<p>成功後 1 小時內免重複輸入</p>
             <input type="password" id="pw" placeholder="輸入授權密碼" autofocus>
             <button id="btn" onclick="verify()">確認進入</button>
             <p id="msg">驗證失敗</p>
@@ -68,7 +68,7 @@
                     btn.disabled = false;
                 }
             } catch(e) { 
-                alert("連線失敗，請確認 GAS 部署是否設為『所有人』");
+                alert("連線失敗，請聯繫開發者");
                 btn.disabled = false;
             }
         }
