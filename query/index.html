@@ -118,7 +118,7 @@
             var r = CUR[idx];
             var id = r[1]; // 以國碼為唯一識別碼
             if(!MEMO[id]) {
-                MEMO[id] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 1 };
+                MEMO[id] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
                 btn.innerHTML = "已存";
                 btn.classList.add('done');
