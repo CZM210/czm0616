@@ -3,39 +3,33 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>POYA 商品助手</title>
+    <title>商品查詢器</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         
-        /* 置頂區域 */
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; }
         input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
         .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 5px; }
 
-        /* 切換頁籤 */
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
         .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
 
-        /* 排序表頭 */
         .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
 
-        /* 商品卡片：搜尋結果 */
         .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; }
         .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 80%; }
         .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; }
 
-        /* 商品卡片：暫存清單 (含加減鈕) */
         .memo-row { padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; background: #fff; position: relative; }
         .memo-top { display: flex; align-items: center; margin-bottom: 6px; }
         .qty-box { display: flex; align-items: center; margin-right: 12px; flex-shrink: 0; }
         .qty-btn { width: 30px; height: 30px; border: 1px solid #ddd; background: #fff; border-radius: 4px; color: var(--poya); font-size: 20px; font-weight: bold; line-height: 26px; text-align: center; cursor: pointer; }
         .qty-num { width: 35px; text-align: center; font-size: 18px; font-weight: bold; }
 
-        /* 動作按鈕 */
         .btn-save { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; }
         .btn-save.done { background: #4caf50; }
         .btn-remove { position: absolute; right: 10px; top: 12px; background: #999; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
@@ -48,7 +42,6 @@
     
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
-        // 儲存版本 v6
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
 
         window.onload = function() {
@@ -63,6 +56,19 @@
             xhr.send();
             updateBadge();
         };
+
+        // --- 新增：發報到 GAS 的功能 ---
+        function sendLog(q, count) {
+            // [店長請注意] 請在下面換上你的 GAS 部署網址
+            var gasUrl = "https://script.google.com/macros/s/AKfycbyGsDlf9G726yIY99YptnRQGjmHLffXSsu7gC5exqbeQvi3WBVUnaOBgsbgW9DBgANMWA/exec"; 
+            
+            var finalUrl = gasUrl + "?q=" + encodeURIComponent(q) + 
+                           "&count=" + count + 
+                           "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
+            
+            // 使用 fetch 靜默發送，不干擾使用者
+            fetch(finalUrl, { mode: 'no-cors' }).catch(e => console.log("Log error"));
+        }
 
         function switchTab(m) {
             document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -94,6 +100,9 @@
             }
             renderSearchPage();
             window.scrollTo(0,0);
+            
+            // --- 搜尋按下時發送紀錄 ---
+            sendLog(val, CUR.length); 
         }
 
         function save(idx, btn) {
@@ -104,9 +113,7 @@
                 sync();
                 btn.innerHTML = "已存";
                 btn.classList.add('done');
-            } else {
-                alert("已在清單中");
-            }
+            } else { alert("已在清單中"); }
         }
 
         function sync() {
@@ -146,7 +153,7 @@
                 h += '<div style="flex:1;overflow:hidden;"><span class="item-name" style="width:100%">' + r.n + '</span></div>';
                 h += '</div>';
                 h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div><div>' + r.s + '</div></div>';
-                h += '<textarea class="memo-input" placeholder="點擊輸入備註..." oninput="updateNote(\''+r.g+'\', this.value)">' + r.note + '</textarea>';
+                h += '<textarea class="memo-input" placeholder="備註..." oninput="updateNote(\''+r.g+'\', this.value)">' + r.note + '</textarea>';
                 h += '<button class="btn-remove" onclick="remove(\''+r.g+'\')">移除</button>';
                 h += '</div>';
             }
@@ -193,7 +200,7 @@
             </div>
             <div id="status" class="status-bar">就緒</div>
         </div>
-        <div id="ui-memo" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄筆記</div></div>
+        <div id="ui-memo" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄備註</div></div>
     </div>
 
     <div id="view-search"></div>
