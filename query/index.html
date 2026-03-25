@@ -51,9 +51,12 @@
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
 
+
+// 每次你更新 data.json 後，手動把後面的 v1 改成 v2, v3...
+
         window.onload = function() {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?t=' + new Date().getTime(), true);
+            xhr.open('GET', 'data.json?v=20260325', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
