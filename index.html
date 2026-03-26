@@ -22,7 +22,7 @@
         .card:active { transform: scale(0.97); background-color: #f0f0f0; }
         .card .icon { font-size: 28px; margin-right: 15px; }
         .card .info h3 { margin: 0; font-size: 18px; color: var(--primary-color); font-weight: bold; }
-        .card .info p { margin: 4px 0 0; color: #555; font-size: 14px; }
+        .card .info p { margin: 4px 0 0; color: #555; font-size: 14px; line-height: 1.4; }
 
         .spacer { height: 20px; border-bottom: 1px dashed #ccc; margin-bottom: 5px; }
 
@@ -42,23 +42,40 @@
 <div class="container">
     <a href="query/index.html" class="card">
         <div class="icon">🔍</div>
-        <div class="info"><h3>1.商品查詢器</h3><p>快速檢索可用空白增加條件 EX:A09 噴霧<p>添加暫存功能，紀錄庫誤、重點品項調整..</p></div>
+        <div class="info">
+            <h3>1.商品查詢器</h3>
+            <p>快速檢索可用空白增加條件 EX:A09 噴霧</p>
+            <p>添加暫存功能，紀錄庫誤、重點品項調整..</p>
+        </div>
     </a>
+    
     <a href="current/index.html" class="card" style="border-left-color: var(--accent-color);">
         <div class="icon">📅</div>
-        <div class="info"><h3>2.本月承租比對表</h3><p>提供最新承租底稿供核對<p>移除及待確認為舊承租拉回所示。<p>移除待確認：新承租未匯入但尚在區間內<p>如有疑慮或疑問請洽詢</p></div>
+        <div class="info">
+            <h3>2.本月承租比對表</h3>
+            <p>提供最新承租底稿供核對</p>
+            <p>移除及待確認為舊承租拉回所示。</p>
+            <p>如有疑慮或疑問請洽詢</p>
+        </div>
     </a>
 
-<div class="card">
-  <h3>4.意見回饋箱</h3>
-  <p>如果您對工具有任何建議，歡迎點擊下方連結告知。</p><p>
-  <a href="https://script.google.com/macros/s/AKfycby2V9Q_YoSBDyHYCEMkAhneBCfcELmSr2awJtt0lIjlGhL-FfnI3tL0ZJ3ph4zQVnb0Pw/exec" target="_blank">點我填寫回饋</a>
-</div>
+    <a href="https://script.google.com/macros/s/AKfycby2V9Q_YoSBDyHYCEMkAhneBCfcELmSr2awJtt0lIjlGhL-FfnI3tL0ZJ3ph4zQVnb0Pw/exec" class="card" target="_blank" style="border-left-color: #5d9cec;">
+        <div class="icon">💬</div>
+        <div class="info">
+            <h3>3.意見回饋箱</h3>
+            <p>對工具有任何建議？點擊此處告知</p>
+            <p>您的寶貴意見將作為優化參考</p>
+        </div>
+    </a>
 
     <div class="spacer"></div>
+    
     <a href="archive/index.html" class="history-card">
         <div class="icon">📁</div>
-        <div class="info"><h3>4.歷史承租 (上一檔資料)</h3><p>沒事不要點，後續持續新增用..</p></div>
+        <div class="info">
+            <h3>4.歷史承租 (上一檔資料)</h3>
+            <p>沒事不要點，後續持續新增用..</p>
+        </div>
     </a>
 </div>
 <p style="margin-top: 40px; color: #bbb; font-size: 11px;">Powered by Store Management System © 2026</p>
