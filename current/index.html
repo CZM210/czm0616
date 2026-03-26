@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
@@ -51,7 +51,7 @@
             btn.disabled = true;
 
             try {
-                const gasUrl = "https://script.google.com/macros/s/AKfycby3JhPngA_Dyqf_Md-evaRrHHt-GKK4kP3SMVpjlLM-SUuxc-5__8L0k9VZhPgkz8iGTQ/exec";
+                const gasUrl = "https://script.google.com/macros/s/AKfycbwtNWWoqNqVfvyDutp6ZZ_cDEqKphq_bNZ_MEyCsWK7mfwsAcKMIzioI9BuM3ZTbOxtCw/exec";
                 // ?? 直接對 GAS 發送請求，不抓外部 IP 避免被擋
                 const res = await fetch(`${gasUrl}?password=${encodeURIComponent(input)}&device=${encodeURIComponent(navigator.userAgent)}`);
                 const result = await res.json();
