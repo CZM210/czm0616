@@ -79,6 +79,29 @@
         </div>
     </a>
 </div>
+
+
+<script>
+    // 請務必將此處替換為你的 GAS 部署網址
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
+
+    // 頁面載入後自動觸發：紀錄訪問
+    window.addEventListener('load', function() {
+        const targetUrl = `${WEB_APP_URL}?action=record&type=首頁訪問&content=門市人員進入`;
+        
+        fetch(targetUrl, { mode: 'no-cors' })
+        .then(() => {
+            document.querySelector('.counter-footer').innerText = "系統已就緒";
+        })
+        .catch(() => {
+            document.querySelector('.counter-footer').innerText = "離線模式";
+        });
+    });
+</script>
+
+
+
+
 <p style="margin-top: 40px; color: #bbb; font-size: 11px;">Powered by Store Management System © 2026</p>
 </body>
 </html>
