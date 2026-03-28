@@ -49,17 +49,12 @@
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
-        
-        // --- 網址配置 ---
-        // 舊系統網址 (原有的紀錄方式)
-        var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
-        // 新統計系統網址 (圖二統計人次用)
-        var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
+        var GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
+
+
+// 每次你更新 data.json 後，手動把後面的 v1 改成 v2, v3...
 
         window.onload = function() {
-            // 自動向新系統報到：紀錄「查詢器訪問」
-            fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
-
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=20260325', true);
             xhr.onreadystatechange = function() {
@@ -72,7 +67,7 @@
             updateBadge();
         };
 
-        // --- 方案 B：雙重發送系統 ---
+        // --- 搜尋發報系統 (含 IP) ---
         async function sendLog(q, count) {
             let userIp = "偵測失敗";
             try {
@@ -81,22 +76,12 @@
                 userIp = data.ip;
             } catch (e) { console.log("IP偵測跳過"); }
 
-            let agent = navigator.userAgent.substring(0, 50);
-
-            // 第一路：發送給舊系統 (維持原格式 q, count, ip, agent)
-            let oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
-                         "&count=" + count + 
-                         "&ip=" + userIp + 
-                         "&agent=" + encodeURIComponent(agent);
-            fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old Log error"));
-
-            // 第二路：發送給新統計系統 (對接 Log 分頁統計公式)
-            let detail = `關鍵字: [${q}] - 結果: ${count} 筆 - IP: ${userIp}`;
-            let newUrl = NEW_GAS_URL + 
-                         "?action=record" + 
-                         "&type=執行搜尋" + 
-                         "&content=" + encodeURIComponent(detail);
-            fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New Log error"));
+            let finalUrl = GAS_URL + "?q=" + encodeURIComponent(q) + 
+                           "&count=" + count + 
+                           "&ip=" + userIp + 
+                           "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
+            
+            fetch(finalUrl, { mode: 'no-cors' }).catch(e => console.log("Log error"));
         }
 
         function switchTab(m) {
@@ -129,12 +114,12 @@
             }
             renderSearchPage();
             window.scrollTo(0,0);
-            sendLog(val, CUR.length); // 發送雙重紀錄
+            sendLog(val, CUR.length); // 發送搜尋紀錄
         }
 
         function save(idx, btn) {
             var r = CUR[idx];
-            var id = r[1];
+            var id = r[1]; // 以國碼為唯一識別碼
             if(!MEMO[id]) {
                 MEMO[id] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
