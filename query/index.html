@@ -61,7 +61,7 @@
             fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
 
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=20260325', true);
+            xhr.open('GET', 'data.json?v=20260325_2', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
