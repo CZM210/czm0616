@@ -117,41 +117,20 @@
             }
         }
 
-JavaScript
-function doSearch() {
-    var originalVal = document.getElementById('q').value.toUpperCase();
-    if(!originalVal) return;
-    
-    // 1. 準備兩種關鍵字：一種是切分後的陣列，一種是去除空格後的完整字串
-    var qArray = originalVal.split(' ').filter(s => s !== ""); 
-    var combinedVal = originalVal.replace(/\s+/g, ""); // 去除所有空格
-    
-    CUR = [];
-    for (var i = 0; i < ALL.length; i++) {
-        var r = ALL[i];
-        // 組合搜尋標的：部門 + 國碼 + 店碼 + 品名
-        var targetStr = (r[0] + r[1] + r[2] + r[3]).toUpperCase();
-        var targetStrNoSpace = targetStr.replace(/\s+/g, ""); // 目標字串也去空格比對
-        
-        // 邏輯 A：多關鍵字 AND 比對 (現有邏輯)
-        var matchAll = true;
-        for (var j = 0; j < qArray.length; j++) {
-            if (targetStr.indexOf(qArray[j]) == -1) { matchAll = false; break; }
+        function doSearch() {
+            var val = document.getElementById('q').value.toUpperCase();
+            if(!val) return;
+            var q = val.split(' ');
+            CUR = [];
+            for (var i = 0; i < ALL.length; i++) {
+                var r = ALL[i], t = (r[0]+r[1]+r[2]+r[3]).toUpperCase(), m = true;
+                for (var j = 0; j < q.length; j++) { if (t.indexOf(q[j]) == -1) { m = false; break; } }
+                if (m) { CUR.push(r); if (CUR.length >= 100) break; }
+            }
+            renderSearchPage();
+            window.scrollTo(0,0);
+            sendLog(val, CUR.length); // 發送雙重紀錄
         }
-        
-        // 邏輯 B：去空格後的字串模糊比對 (新增邏輯)
-        var fuzzyMatch = targetStrNoSpace.indexOf(combinedVal) !== -1;
-        
-        // 只要符合其中一種邏輯即加入結果
-        if (matchAll || fuzzyMatch) {
-            CUR.push(r);
-            if (CUR.length >= 100) break; // 限制 100 筆以維持效能
-        }
-    }
-    renderSearchPage();
-    window.scrollTo(0, 0);
-    sendLog(originalVal, CUR.length); // 紀錄搜尋日誌
-}
 
         function save(idx, btn) {
             var r = CUR[idx];
