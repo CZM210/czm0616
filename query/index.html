@@ -61,7 +61,7 @@
             fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
 
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=20260325_3', true);
+            xhr.open('GET', 'data.json?v=20260325', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
@@ -117,40 +117,20 @@
             }
         }
 
-function doSearch() {
-    var rawInput = document.getElementById('q').value.toUpperCase();
-    if(!rawInput) return;
-    
-    // 1. 準備兩種關鍵字：一種是切分後的陣列(AND比對)，一種是去空格後的字串(模糊比對)
-    var qArray = rawInput.split(' ').filter(s => s !== ""); 
-    var rawNoSpace = rawInput.replace(/\s+/g, ""); 
-    
-    CUR = [];
-    for (var i = 0; i < ALL.length; i++) {
-        var r = ALL[i];
-        // 搜尋目標欄位組合
-        var targetStr = (r[0] + r[1] + r[2] + r[3]).toUpperCase();
-        var targetNoSpace = targetStr.replace(/\s+/g, ""); 
-        
-        // 邏輯 A：現有的空格拆分比對 (必須同時包含「可糖」與「流心」)
-        var isMatchAll = true;
-        for (var j = 0; j < qArray.length; j++) {
-            if (targetStr.indexOf(qArray[j]) == -1) { isMatchAll = false; break; }
+        function doSearch() {
+            var val = document.getElementById('q').value.toUpperCase();
+            if(!val) return;
+            var q = val.split(' ');
+            CUR = [];
+            for (var i = 0; i < ALL.length; i++) {
+                var r = ALL[i], t = (r[0]+r[1]+r[2]+r[3]).toUpperCase(), m = true;
+                for (var j = 0; j < q.length; j++) { if (t.indexOf(q[j]) == -1) { m = false; break; } }
+                if (m) { CUR.push(r); if (CUR.length >= 100) break; }
+            }
+            renderSearchPage();
+            window.scrollTo(0,0);
+            sendLog(val, CUR.length); // 發送雙重紀錄
         }
-        
-        // 邏輯 B：去空格比對 (讓「可糖流心」能對應到「可 糖 流 心」)
-        var isFuzzyMatch = targetNoSpace.indexOf(rawNoSpace) !== -1;
-        
-        // 符合任一邏輯即加入結果
-        if (isMatchAll || isFuzzyMatch) {
-            CUR.push(r);
-            if (CUR.length >= 100) break; // 維持效能限制
-        }
-    }
-    renderSearchPage();
-    window.scrollTo(0, 0);
-    sendLog(rawInput, CUR.length); // 紀錄搜尋結果至 GAS
-}
 
         function save(idx, btn) {
             var r = CUR[idx];
