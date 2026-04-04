@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>商品查詢器</title>
     <style>
-        :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
+        :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; --bg-similar: #fff3e0; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         
         /* 置頂區域 */
@@ -44,20 +44,17 @@
         .status-bar { padding: 5px; text-align: center; font-size: 12px; color: #999; background: #f9f9f9; border-bottom: 1px solid var(--border); }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
         .hidden { display: none; }
+        .tag-similar { color: #ff9800; font-size: 11px; font-weight: normal; margin-right: 4px; border: 1px solid #ff9800; padding: 0 2px; border-radius: 2px; }
     </style>
     
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
-        // --- 網址配置 ---
-        // 舊系統網址 (原有的紀錄方式)
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
-        // 新統計系統網址 (圖二統計人次用)
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            // 自動向新系統報到：紀錄「查詢器訪問」
             fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
 
             var xhr = new XMLHttpRequest();
@@ -72,7 +69,6 @@
             updateBadge();
         };
 
-        // --- 方案 B：雙重發送系統 ---
         async function sendLog(q, count) {
             let userIp = "偵測失敗";
             try {
@@ -83,14 +79,12 @@
 
             let agent = navigator.userAgent.substring(0, 50);
 
-            // 第一路：發送給舊系統 (維持原格式 q, count, ip, agent)
             let oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
                          "&count=" + count + 
                          "&ip=" + userIp + 
                          "&agent=" + encodeURIComponent(agent);
             fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old Log error"));
 
-            // 第二路：發送給新統計系統 (對接 Log 分頁統計公式)
             let detail = `關鍵字: [${q}] - 結果: ${count} 筆 - IP: ${userIp}`;
             let newUrl = NEW_GAS_URL + 
                          "?action=record" + 
@@ -117,25 +111,52 @@
             }
         }
 
+        // --- 核心改動：智慧搜尋邏輯 ---
         function doSearch() {
-            var val = document.getElementById('q').value.toUpperCase();
+            var val = document.getElementById('q').value.trim();
             if(!val) return;
-            var q = val.split(' ');
+            
+            // 預處理搜尋詞：去空格與特殊符號
+            var cleanQuery = val.toUpperCase().replace(/[\s\+\-\/\(\)]+/g, '');
+            var queryChars = Array.from(cleanQuery);
+            
             CUR = [];
             for (var i = 0; i < ALL.length; i++) {
-                var r = ALL[i], t = (r[0]+r[1]+r[2]+r[3]).toUpperCase(), m = true;
-                for (var j = 0; j < q.length; j++) { if (t.indexOf(q[j]) == -1) { m = false; break; } }
-                if (m) { CUR.push(r); if (CUR.length >= 100) break; }
+                var r = ALL[i];
+                // 將資料庫品名等資訊「脫光」處理
+                var t = (r[0]+r[1]+r[2]+r[3]).toUpperCase();
+                var cleanName = t.replace(/[\s\+\-\/\(\)]+/g, '');
+
+                // 計算命中字數
+                var matchCount = 0;
+                for (var j = 0; j < queryChars.length; j++) {
+                    if (cleanName.indexOf(queryChars[j]) !== -1) { matchCount++; }
+                }
+
+                var score = queryChars.length > 0 ? (matchCount / queryChars.length) : 0;
+
+                // 門檻：相似度 0.8 以上，或是品名直接包含搜尋詞
+                if (score >= 0.8 || cleanName.indexOf(cleanQuery) !== -1) {
+                    var entry = r.slice(); // 複製原始資料
+                    entry.push(score);    // 在最後索引存入分數 (index 4)
+                    CUR.push(entry);
+                    if (CUR.length >= 100) break;
+                }
             }
+
+            // 按相似度由高到低排序
+            CUR.sort(function(a, b) { return b[4] - a[4]; });
+
             renderSearchPage();
             window.scrollTo(0,0);
-            sendLog(val, CUR.length); // 發送雙重紀錄
+            sendLog(val, CUR.length); 
         }
 
         function save(idx, btn) {
             var r = CUR[idx];
             var id = r[1];
             if(!MEMO[id]) {
+                // 存入時只取前 4 個原始欄位
                 MEMO[id] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
                 btn.innerHTML = "已存";
@@ -153,14 +174,26 @@
         }
 
         function renderSearchPage() {
-            var h = '', q = document.getElementById('q').value.toUpperCase().split(' ');
+            var h = '', searchVal = document.getElementById('q').value.trim();
+            var q = searchVal.toUpperCase().split(' ');
+            
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3];
-                for(var j=0; j<q.length; j++) { if(q[j]) name = name.replace(new RegExp("("+q[j]+")", "gi"), '<span class="highlight">$1</span>'); }
+                var score = r[4]; // 取得相似度分數
+
+                // 顏色與標籤邏輯
+                var rowStyle = (score < 1) ? 'style="background:var(--bg-similar);"' : '';
+                var smartTag = (score < 1) ? '<span class="tag-similar">相似</span>' : '';
+
+                for(var j=0; j<q.length; j++) { 
+                    if(q[j]) name = name.replace(new RegExp("("+q[j]+")", "gi"), '<span class="highlight">$1</span>'); 
+                }
+
                 var isSaved = MEMO[r[1]] ? 'done' : '';
                 var btnTxt = MEMO[r[1]] ? '已存' : '暫存';
-                h += '<div class="item-row">';
-                h += '<span class="item-name">' + name + '</span>';
+
+                h += '<div class="item-row" ' + rowStyle + '>';
+                h += '<span class="item-name">' + smartTag + name + '</span>';
                 h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div>' + r[2] + '</div></div>';
                 h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+btnTxt+'</button>';
                 h += '</div>';
@@ -202,7 +235,10 @@
         function sort(idx) {
             if(CUR.length == 0) return;
             var f = DIR[idx];
-            CUR.sort(function(a, b) { var vA = a[idx], vB = b[idx]; return (isNaN(vA) ? vA.localeCompare(vB) : (vA - vB)) * f; });
+            CUR.sort(function(a, b) { 
+                var vA = a[idx], vB = b[idx]; 
+                return (isNaN(vA) ? String(vA).localeCompare(String(vB)) : (vA - vB)) * f; 
+            });
             DIR[idx] *= -1;
             renderSearchPage();
         }
