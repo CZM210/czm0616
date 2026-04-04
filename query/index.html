@@ -56,7 +56,7 @@
 
         window.onload = function() {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=20260325', true);
+            xhr.open('GET', 'data.json?v=20260325_99', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
