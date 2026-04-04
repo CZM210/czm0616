@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-智慧強效版</title>
+    <title>商品查詢器-智慧版</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -46,7 +46,7 @@
         window.onload = function() {
             fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=20260325', true);
+            xhr.open('GET', 'data.json?v=20260325_99', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
@@ -187,7 +187,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋商品...">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字..『善用空格』避免長字串">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
