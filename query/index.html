@@ -46,7 +46,7 @@
         window.onload = function() {
             fetch(NEW_GAS_URL + "?action=record&type=首頁訪問&content=進入查詢器頁面", { mode: 'no-cors' });
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=20260325_123', true);
+            xhr.open('GET', 'data.json?v=20260325_99', true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = eval('(' + xhr.responseText + ')');
@@ -187,7 +187,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋商品..『善用空格』">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字..『善用空格』避免長字串">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
