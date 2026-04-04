@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-智慧分段版</title>
+    <title>商品查詢器-智慧分段版 v2</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -39,7 +39,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字.. 如：Pure果凍">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="請搜尋關鍵字..">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
@@ -67,20 +67,25 @@
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
-        window.onload = function() {
+window.onload = function() {
+            // 當你有更新 data.json 時，才手動改這個號碼 (例如改為 0405_01)
+            // 只要號碼不變，手機就會讀取快取，不會消耗流量下載重複資料
+            var DATA_VERSION = "20260325_999"; 
+            
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=' + new Date().getTime(), true);
+            xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = JSON.parse(xhr.responseText);
-                    document.getElementById('status').innerHTML = "系統就緒";
+                    // 顯示目前版本，讓你知道現在看的是哪一天的資料
+                    document.getElementById('status').innerHTML = "系統就緒 (" + DATA_VERSION + ")";
                 }
             };
             xhr.send();
             updateBadge();
         };
 
-        // 智慧分段比對邏輯
+        // 智慧分段比對邏輯 - 寬鬆強化版 (相容舊手機)
         function calculateSmartScore(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
@@ -90,7 +95,7 @@
             var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
             if (cleanName.indexOf(cleanQuery) !== -1) return 1.0;
 
-            // 2. 分段權重比對：英文數字視為完整區塊，中文拆字
+            // 2. 混合權重比對：英文數字視為完整區塊，中文拆字計算
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return 0;
 
@@ -100,10 +105,10 @@
                 var isAlphaNum = /^[a-z0-9]+$/.test(seg);
                 
                 if (isAlphaNum) {
-                    // 英文/數字：必須完整出現該區塊 (解決 BB 抓到 Biore 的問題)
+                    // 英文/數字：必須「完整區塊」出現才給分 (解決 BB 誤報 Biore)
                     if (cleanName.indexOf(seg) !== -1) totalWeight += 1;
                 } else {
-                    // 中文：按字元命中比例計算 (解決 0.8 相似度要求)
+                    // 中文：改為「逐字加權」，解決「果凍」找不到「蒟蒻凍」的問題
                     var charMatch = 0;
                     for (var j = 0; j < seg.length; j++) {
                         if (cleanName.indexOf(seg.charAt(j)) !== -1) charMatch++;
@@ -121,16 +126,18 @@
             CUR = [];
             for (var i = 0; i < ALL.length; i++) {
                 var r = ALL[i];
-                var fullText = (r[0] + r[1] + r[2] + r[3]); // 部門+國碼+店碼+品名
+                var fullText = (r[0] + r[1] + r[2] + r[3]); // 合併所有欄位搜尋
                 var score = calculateSmartScore(val, fullText);
                 
-                if (score >= 0.8) {
+                // 門檻設為 0.7，讓「PURE果凍」可以搜尋到「PURE...蒟蒻凍」 (0.75分)
+                if (score >= 0.7) {
                     var entry = r.slice();
                     entry.push(score); 
                     CUR.push(entry);
                     if (CUR.length >= 200) break; 
                 }
             }
+            // 按相似度得分排序，分數越高排越前面
             CUR.sort(function(a, b) { return b[4] - a[4]; });
             renderSearchPage();
             window.scrollTo(0,0);
@@ -143,9 +150,11 @@
             
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3], score = r[4];
+                // 相似度低於 1 的結果顯示淺橘色背景提醒
                 var rowBg = (score < 1) ? '#fff4e5' : '#ffffff';
                 var smartTag = (score < 1) ? '<span class="tag-similar">相似</span>' : '';
                 
+                // 關鍵字高亮顯示邏輯
                 for(var j=0; j<q.length; j++) { 
                     if(q[j] && q[j].length > 0) {
                         var safeQ = q[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -233,7 +242,8 @@
             var agent = navigator.userAgent.substring(0, 50);
             var detail = "關鍵字: [" + q + "] - 結果: " + count + " 筆";
             var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent(detail + " - " + agent);
-            var img = new Image(); img.src = newUrl; // 使用圖片發送避免跨域問題
+            // 使用 Image 對象發送後台記錄，避免跨域請求失敗
+            var img = new Image(); img.src = newUrl; 
         }
     </script>
 </body>
