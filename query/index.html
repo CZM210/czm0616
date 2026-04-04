@@ -7,27 +7,21 @@
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
-        
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; }
         input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
         .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 5px; }
-
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
         .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
-
         .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
-
         .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; background: #fff; }
         .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 80%; }
         .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; }
-
         .btn-save { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; }
         .btn-save.done { background: #4caf50; }
         .btn-remove { position: absolute; right: 10px; top: 12px; background: #999; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
-
         .memo-row { padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; background: #fff; position: relative; }
         .memo-input { width: 100%; margin-top: 5px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: var(--bg-memo); font-size: 14px; box-sizing: border-box; }
         .status-bar { padding: 5px; text-align: center; font-size: 12px; color: #999; background: #f9f9f9; border-bottom: 1px solid var(--border); }
@@ -39,7 +33,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="請搜尋關鍵字..">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字.. 如：Pure果凍">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
@@ -64,20 +58,18 @@
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
+        // 你的 GAS 回傳位置
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
-window.onload = function() {
-            // 當你有更新 data.json 時，才手動改這個號碼 (例如改為 0405_01)
-            // 只要號碼不變，手機就會讀取快取，不會消耗流量下載重複資料
-            var DATA_VERSION = "20260325_999"; 
-            
+        window.onload = function() {
+            // 手動更新版本號以節省流量
+            var DATA_VERSION = "20260405_v2"; 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
                 if (xhr.readyState == 4 && xhr.status == 200) {
                     ALL = JSON.parse(xhr.responseText);
-                    // 顯示目前版本，讓你知道現在看的是哪一天的資料
                     document.getElementById('status').innerHTML = "系統就緒 (" + DATA_VERSION + ")";
                 }
             };
@@ -85,30 +77,24 @@ window.onload = function() {
             updateBadge();
         };
 
-        // 智慧分段比對邏輯 - 寬鬆強化版 (相容舊手機)
+        // 智慧分段比對邏輯
         function calculateSmartScore(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
             var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
-
-            // 1. 完全包含 (不論空格符號) 直接過關
             var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
+
             if (cleanName.indexOf(cleanQuery) !== -1) return 1.0;
 
-            // 2. 混合權重比對：英文數字視為完整區塊，中文拆字計算
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return 0;
 
             var totalWeight = 0;
             for (var i = 0; i < segments.length; i++) {
                 var seg = segments[i];
-                var isAlphaNum = /^[a-z0-9]+$/.test(seg);
-                
-                if (isAlphaNum) {
-                    // 英文/數字：必須「完整區塊」出現才給分 (解決 BB 誤報 Biore)
+                if (/^[a-z0-9]+$/.test(seg)) {
                     if (cleanName.indexOf(seg) !== -1) totalWeight += 1;
                 } else {
-                    // 中文：改為「逐字加權」，解決「果凍」找不到「蒟蒻凍」的問題
                     var charMatch = 0;
                     for (var j = 0; j < seg.length; j++) {
                         if (cleanName.indexOf(seg.charAt(j)) !== -1) charMatch++;
@@ -126,45 +112,54 @@ window.onload = function() {
             CUR = [];
             for (var i = 0; i < ALL.length; i++) {
                 var r = ALL[i];
-                var fullText = (r[0] + r[1] + r[2] + r[3]); // 合併所有欄位搜尋
-                var score = calculateSmartScore(val, fullText);
-                
-                // 門檻設為 0.7，讓「PURE果凍」可以搜尋到「PURE...蒟蒻凍」 (0.75分)
-                if (score >= 0.7) {
+                var score = calculateSmartScore(val, (r[0]+r[1]+r[2]+r[3]));
+                if (score >= 0.7) { // 寬鬆門檻解決 PURE果凍 問題
                     var entry = r.slice();
                     entry.push(score); 
                     CUR.push(entry);
                     if (CUR.length >= 200) break; 
                 }
             }
-            // 按相似度得分排序，分數越高排越前面
             CUR.sort(function(a, b) { return b[4] - a[4]; });
             renderSearchPage();
             window.scrollTo(0,0);
-            sendLog(val, CUR.length); 
+            sendLog(val, CUR.length); // 補回發送紀錄功能
+        }
+
+        // 核心回傳資料函數 (sendLog)
+        async function sendLog(q, count) {
+            var userIp = "偵測失敗";
+            try {
+                // 為求相容 Win7，使用較穩定的 fetch 邏輯
+                var response = await fetch('https://api.ipify.org?format=json');
+                var data = await response.json();
+                userIp = data.ip;
+            } catch (e) { console.log("IP偵測跳過"); }
+            
+            var agent = navigator.userAgent.substring(0, 50);
+            // 同時發送到舊版與新版 GAS
+            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp + "&agent=" + encodeURIComponent(agent);
+            var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent("關鍵字: [" + q + "] - 結果: " + count + " 筆 - IP: " + userIp);
+            
+            var img1 = new Image(); img1.src = oldUrl;
+            var img2 = new Image(); img2.src = newUrl;
         }
 
         function renderSearchPage() {
             var h = '', searchVal = document.getElementById('q').value.trim();
             var q = searchVal.replace(/[\+\-\/\(\)]+/g, ' ').split(/\s+/);
-            
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3], score = r[4];
-                // 相似度低於 1 的結果顯示淺橘色背景提醒
                 var rowBg = (score < 1) ? '#fff4e5' : '#ffffff';
                 var smartTag = (score < 1) ? '<span class="tag-similar">相似</span>' : '';
-                
-                // 關鍵字高亮顯示邏輯
                 for(var j=0; j<q.length; j++) { 
                     if(q[j] && q[j].length > 0) {
                         var safeQ = q[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         name = name.replace(new RegExp("("+safeQ+")", "gi"), '<span class="highlight">$1</span>'); 
                     }
                 }
-                
                 var isSaved = MEMO[r[1]] ? 'done' : '';
                 var btnTxt = MEMO[r[1]] ? '已存' : '暫存';
-                
                 h += '<div class="item-row" style="background:' + rowBg + ';">';
                 h += '<span class="item-name">' + smartTag + name + '</span>';
                 h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div>' + r[2] + '</div></div>';
@@ -177,12 +172,10 @@ window.onload = function() {
 
         function save(idx, btn) {
             var r = CUR[idx];
-            var id = r[1];
-            if(!MEMO[id]) {
-                MEMO[id] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
+            if(!MEMO[r[1]]) {
+                MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
-                btn.innerHTML = "已存";
-                btn.classList.add('done');
+                btn.innerHTML = "已存"; btn.classList.add('done');
             } else { alert("已在暫存清單中"); }
         }
 
@@ -192,7 +185,6 @@ window.onload = function() {
         function switchTab(m) {
             var btns = document.querySelectorAll('.nav-btn');
             for(var i=0; i<btns.length; i++) { btns[i].classList.remove('active'); }
-            
             if(m === 'search') {
                 document.getElementById('ui-search-header').classList.remove('hidden');
                 document.getElementById('ui-memo-header').classList.add('hidden');
@@ -225,7 +217,6 @@ window.onload = function() {
 
         function updateNote(id, txt) { if(MEMO[id]) { MEMO[id].note = txt; localStorage.setItem('poya_v6', JSON.stringify(MEMO)); } }
         function remove(id) { if(confirm('確定移除？')) { delete MEMO[id]; sync(); renderMemoPage(); } }
-        
         function sort(idx) {
             if(CUR.length == 0) return;
             var f = DIR[idx];
@@ -236,14 +227,6 @@ window.onload = function() {
             });
             DIR[idx] *= -1;
             renderSearchPage();
-        }
-
-        function sendLog(q, count) {
-            var agent = navigator.userAgent.substring(0, 50);
-            var detail = "關鍵字: [" + q + "] - 結果: " + count + " 筆";
-            var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent(detail + " - " + agent);
-            // 使用 Image 對象發送後台記錄，避免跨域請求失敗
-            var img = new Image(); img.src = newUrl; 
         }
     </script>
 </body>
