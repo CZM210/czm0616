@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-英數平權版 v4.1</title>
+    <title>商品查詢器-紅利加權版 v4.8</title>
     <style>
-        :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
+        :root { --poya: #d63384; --border: #eee; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; }
@@ -14,8 +14,6 @@
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
         .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
-        .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
-        .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
         .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; background: #fff; }
         .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 85%; }
         .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; }
@@ -36,169 +34,122 @@
             <button id="tab-search" class="nav-btn active" onclick="switchTab('search')">搜尋結果</button>
             <button id="tab-memo" class="nav-btn" onclick="switchTab('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
         </div>
-        <div id="ui-search-header">
-            <div class="sort-row">
-                <button class="sort-btn" onclick="sort(0)">部門 ↕</button>
-                <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
-                <button class="sort-btn" onclick="sort(2)">相似度 ↕</button>
-                <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
-            </div>
-            <div id="status" class="status-bar">就緒</div>
-        </div>
+        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒</div>
     </div>
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
 
     <script type="text/javascript">
-        var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
-        var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
-        var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
-        var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
-
+        var ALL = [], CUR = [], MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
+        
         window.onload = function() {
-            var DATA_VERSION = "20260405_v4.1"; 
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState == 4 && xhr.status == 200) {
-                    ALL = JSON.parse(xhr.responseText);
-                    document.getElementById('status').innerHTML = "系統就緒 (" + DATA_VERSION + ")";
-                }
-            };
-            xhr.send();
+            fetch('data.json?v=20260405_v4.8').then(res => res.json()).then(data => {
+                ALL = data;
+                document.getElementById('status').innerText = "系統就緒 (v4.8)";
+            });
             updateBadge();
         };
 
-        // --- 核心進化：英數平權計算法 ---
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
             var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
+            var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
 
-            // 拆解搜尋詞：將英文數字塊視為單一單位，中文拆為單字
-            var segments = query.match(/[\u4E00-\u9FA5]|[a-z0-9]+/g);
+            // 1. 拆解區塊
+            var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return { score: 0, ratio: 0 };
 
-            var totalUnits = segments.length; // 總單位數 (分母)
             var matchedUnits = 0;
-            var lastIdx = -1;
-            var totalDist = 0;
+            var matchedChars = 0;
+            var bonusScore = 0;
 
-            for (var i = 0; i < segments.length; i++) {
-                var seg = segments[i];
+            segments.forEach(seg => {
+                var isEngNum = /^[a-z0-9]+$/.test(seg);
                 var foundIdx = cleanName.indexOf(seg);
 
                 if (foundIdx !== -1) {
-                    matchedUnits += 1; // 無論長短，中英文命中均計 1 分
-                    if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
-                    lastIdx = foundIdx;
+                    matchedUnits++;
+                    var baseVal = seg.length;
+                    
+                    // --- 長英文紅利 (4字以上加權 1.5 倍) ---
+                    if (isEngNum && seg.length >= 4) {
+                        matchedChars += (baseVal * 1.5); 
+                    } else {
+                        matchedChars += baseVal;
+                    }
+                    
+                    // --- 中文連續加分 (品名中包含完整的中文區塊) ---
+                    if (!isEngNum && seg.length > 1) {
+                        bonusScore += 0.1; 
+                    }
+                } else if (!isEngNum) {
+                    // 中文拆字搜尋
+                    for (let c of seg) {
+                        if (cleanName.indexOf(c) !== -1) {
+                            matchedUnits += (1 / seg.length);
+                            matchedChars += 1;
+                        }
+                    }
                 }
-            }
+            });
 
-            // 計算相似度百分比
-            var ratio = matchedUnits / totalUnits;
+            var unitRatio = matchedUnits / segments.length;
+            var charRatio = matchedChars / cleanQuery.length;
 
-            // 嚴格 66% 門檻 (例如搜尋 3 個單位，必須中 3 個才顯示，因為 2/3 = 66%)
-            if (ratio < 0.66) return { score: 0, ratio: 0 };
+            // 雙重 75% 門檻
+            if (unitRatio < 0.75 && charRatio < 0.75) return { score: 0, ratio: 0 };
 
-            // 排序分數：連續性加成
-            var compactness = (totalDist > 0) ? (matchedUnits / (matchedUnits + totalDist)) : 1.0;
-            var score = (matchedUnits * 1000) * compactness;
-
-            return { score: score, ratio: ratio };
-        }
-
-        async function sendLog(q, count) {
-            var userIp = "偵測失敗";
-            try {
-                var response = await fetch('https://api.ipify.org?format=json');
-                var data = await response.json();
-                userIp = data.ip;
-            } catch (e) { }
-            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp;
-            var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent("關鍵字: [" + q + "] - 結果: " + count);
-            new Image().src = oldUrl;
-            new Image().src = newUrl;
+            var finalRatio = Math.min(1.0, charRatio + bonusScore);
+            return { score: matchedChars * 100, ratio: finalRatio };
         }
 
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
-            CUR = [];
-            for (var i = 0; i < ALL.length; i++) {
-                var res = calculateSmartRank(val, ALL[i][3]);
-                if (res.score > 0) {
-                    var entry = ALL[i].slice();
-                    entry[2] = Math.round(res.ratio * 100) + '%';
-                    entry.push(res.score);
-                    CUR.push(entry);
-                }
-            }
-            CUR.sort(function(a, b) { return b[4] - a[4]; });
+            CUR = ALL.map(r => {
+                var res = calculateSmartRank(val, r[3]);
+                return res.ratio > 0 ? [...r, res.ratio, res.score] : null;
+            }).filter(x => x).sort((a, b) => b[5] - a[5]);
             renderSearchPage();
-            window.scrollTo(0,0);
-            sendLog(val, CUR.length); 
         }
 
         function renderSearchPage() {
-            var h = '', searchVal = document.getElementById('q').value.trim();
-            var q = searchVal.replace(/[\+\-\/\(\)]+/g, ' ').split(/\s+/);
-            for (var i = 0; i < CUR.length; i++) {
-                var r = CUR[i], name = r[3], simText = r[2];
-                for(var j=0; j<q.length; j++) { 
-                    if(q[j]) {
-                        var safeQ = q[j].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        name = name.replace(new RegExp("("+safeQ+")", "gi"), '<span class="highlight">$1</span>'); 
-                    }
-                }
-                h += '<div class="item-row"><span class="item-name">' + name + '</span>';
-                h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div class="sim-val">相似度: ' + simText + '</div></div>';
-                h += '<button class="btn-save '+(MEMO[r[1]]?'done':'')+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
-            }
-            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">相似度未達 75% 已隱藏</div>';
-            document.getElementById('status').innerHTML = "搜尋結果: " + CUR.length + " 筆 (單位基準: 英數不拆=1)";
+            var h = '', q = document.getElementById('q').value.trim().split(/\s+/);
+            CUR.forEach((r, idx) => {
+                var name = r[3];
+                q.forEach(word => { if(word) name = name.replace(new RegExp("("+word+")", "gi"), '<span class="highlight">$1</span>'); });
+                h += `<div class="item-row"><span class="item-name">${name}</span><div class="meta-line"><div>${r[0]}</div><div>${r[1]}</div><div class="sim-val">相似度: ${Math.round(r[4]*100)}%</div></div><button class="btn-save ${MEMO[r[1]]?'done':''}" onclick="save(${idx}, this)">${MEMO[r[1]]?'已存':'暫存'}</button></div>`;
+            });
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">未達 75% 門檻</div>';
         }
 
         function save(idx, btn) {
             var r = CUR[idx];
             if(!MEMO[r[1]]) {
-                MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "" };
+                MEMO[r[1]] = { d: r[0], g: r[1], n: r[3] };
                 localStorage.setItem('poya_v6', JSON.stringify(MEMO));
                 updateBadge();
-                btn.innerHTML = "已存"; btn.classList.add('done');
+                btn.innerText = "已存"; btn.classList.add('done');
             }
         }
 
-        function updateBadge() { document.getElementById('memo-count').innerHTML = Object.keys(MEMO).length; }
+        function updateBadge() { document.getElementById('memo-count').innerText = Object.keys(MEMO).length; }
 
         function switchTab(m) {
             document.getElementById('tab-search').classList.toggle('active', m === 'search');
             document.getElementById('tab-memo').classList.toggle('active', m === 'memo');
             document.getElementById('view-search').classList.toggle('hidden', m !== 'search');
             document.getElementById('view-memo').classList.toggle('hidden', m !== 'memo');
-            document.getElementById('ui-search-header').classList.toggle('hidden', m !== 'search');
             if(m === 'memo') renderMemoPage();
         }
 
         function renderMemoPage() {
-            var h = '', keys = Object.keys(MEMO);
-            for (var i = 0; i < keys.length; i++) {
-                var r = MEMO[keys[i]];
-                h += '<div class="item-row"><span class="item-name" style="width:100%">' + r.n + '</span>';
-                h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div></div></div>';
-            }
-            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
-        }
-
-        function sort(idx) {
-            if(CUR.length == 0) return;
-            var f = DIR[idx];
-            CUR.sort(function(a, b) { 
-                var vA = a[idx], vB = b[idx];
-                return (parseFloat(vA) || 0 - parseFloat(vB) || 0) * f || String(vA).localeCompare(String(vB)) * f;
+            var h = '';
+            Object.values(MEMO).forEach(r => {
+                h += `<div class="item-row"><span class="item-name">${r.n}</span><div class="meta-line"><div>${r.d}</div><div>${r.g}</div></div></div>`;
             });
-            DIR[idx] *= -1;
-            renderSearchPage();
+            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
         }
     </script>
 </body>
