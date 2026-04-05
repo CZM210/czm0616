@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-智慧權重優化 v3.4.1</title>
+    <title>商品查詢器-權重修正版 v3.5</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -45,7 +45,6 @@
             </div>
             <div id="status" class="status-bar">就緒</div>
         </div>
-        <div id="ui-memo-header" class="hidden"><div class="status-bar">暫存商品可記錄備註</div></div>
     </div>
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
@@ -54,12 +53,11 @@
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
-        // --- 恢復回傳網址 ---
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            var DATA_VERSION = "20260405_v3.4.1"; 
+            var DATA_VERSION = "20260405_v3.5"; 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
@@ -72,7 +70,7 @@
             updateBadge();
         };
 
-        // --- 核心進化：精確連續性權重演算法 ---
+        // --- 核心進化：嚴格塊狀比對演算法 ---
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
@@ -81,33 +79,43 @@
 
             if (!cleanQuery) return { score: 0, ratio: 0 };
 
+            // 1. 完全連續命中 (絕對最高分)
             var directIdx = cleanName.indexOf(cleanQuery);
             if (directIdx !== -1) {
-                return { score: 500 - (cleanName.length * 0.1), ratio: 1.0 };
+                return { score: 1000 - (cleanName.length * 0.1), ratio: 1.0 };
             }
 
-            var lastIdx = -1, matchCount = 0, totalDist = 0;
-            for (var i = 0; i < cleanQuery.length; i++) {
-                var char = cleanQuery.charAt(i);
-                var foundIdx = cleanName.indexOf(char, lastIdx + 1);
-                if (foundIdx !== -1) {
-                    if (lastIdx !== -1) totalDist += (foundIdx - lastIdx);
-                    matchCount++;
-                    lastIdx = foundIdx;
-                }
+            // 2. 英文與數字塊保護：將搜尋詞拆解成「中文塊」與「英文數字塊」
+            var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
+            if (!segments) return { score: 0, ratio: 0 };
+
+            var totalMatchLen = 0;
+            var lastIdx = -1;
+            var totalDist = 0;
+
+            for (var i = 0; i < segments.length; i++) {
+                var seg = segments[i];
+                var foundIdx = cleanName.indexOf(seg, lastIdx + 1);
+                
+                // 如果是英文或數字塊，必須完整出現
+                if (foundIdx === -1) return { score: 0, ratio: 0 }; 
+
+                if (lastIdx !== -1) totalDist += (foundIdx - lastIdx);
+                totalMatchLen += seg.length;
+                lastIdx = foundIdx;
             }
 
-            var ratio = matchCount / cleanQuery.length;
-            if (ratio < 0.7) return { score: 0, ratio: 0 };
-
-            var compactness = (matchCount > 1) ? (matchCount - 1) / totalDist : 1;
-            var finalScore = (matchCount * 10) * compactness;
+            // 只有當所有區塊（特別是英文塊）都命中的情況下才計算分值
+            var ratio = totalMatchLen / cleanQuery.length;
+            var compactness = (segments.length > 1) ? (segments.length - 1) / totalDist : 1;
+            
+            // 分散命中降權，連續命中升權
+            var finalScore = (totalMatchLen * 10) * compactness;
             var finalRatio = ratio * (compactness > 0.8 ? 1.0 : compactness);
 
             return { score: finalScore, ratio: finalRatio };
         }
 
-        // --- 恢復 sendLog 功能 ---
         async function sendLog(q, count) {
             var userIp = "偵測失敗";
             try {
@@ -140,8 +148,6 @@
             }
             CUR.sort(function(a, b) { return b[4] - a[4]; });
             renderSearchPage();
-            
-            // --- 重新加入呼叫回傳機制 ---
             window.scrollTo(0,0);
             sendLog(val, CUR.length); 
         }
