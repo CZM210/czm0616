@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-嚴格區塊版 v4.9</title>
+    <title>商品查詢器-智慧加權版 v5.0</title>
     <style>
         :root { --poya: #d63384; --border: #eee; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -33,7 +33,7 @@
             <button id="tab-search" class="nav-btn active" onclick="switchTab('search')">搜尋結果</button>
             <button id="tab-memo" class="nav-btn" onclick="switchTab('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
         </div>
-        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒</div>
+        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒 (v5.0)</div>
     </div>
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
@@ -42,9 +42,8 @@
         var ALL = [], CUR = [], MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
         window.onload = function() {
-            fetch('data.json?v=20260405_v4.9').then(res => res.json()).then(data => {
+            fetch('data.json?v=20260405_v5.0').then(res => res.json()).then(data => {
                 ALL = data;
-                document.getElementById('status').innerText = "系統就緒 (v4.9)";
             });
             updateBadge();
         };
@@ -56,32 +55,39 @@
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return 0;
 
-            var totalMatchedLength = 0;
+            var totalScore = 0;
             var isStrictFail = false;
+            var hasLongEnglishMatched = false;
 
             segments.forEach(seg => {
                 var isEngNum = /^[a-z0-9]+$/.test(seg);
                 var foundIdx = cleanName.indexOf(seg);
 
                 if (isEngNum) {
-                    // 英數強匹配：必須成塊出現
-                    if (foundIdx === -1) isStrictFail = true;
-                    else totalMatchedLength += seg.length;
+                    // 英文區塊：不可拆分
+                    if (foundIdx === -1) {
+                        isStrictFail = true;
+                    } else {
+                        totalScore += (seg.length * 10);
+                        if (seg.length >= 4) hasLongEnglishMatched = true; // 標記長英文命中
+                    }
                 } else {
-                    // 中文高標匹配：至少要連續命中 75%
+                    // 中文區塊：動態放行
                     if (foundIdx !== -1) {
-                        totalMatchedLength += seg.length;
+                        totalScore += (seg.length * 10);
                     } else {
                         var charMatch = 0;
                         for (let c of seg) { if (cleanName.indexOf(c) !== -1) charMatch++; }
-                        if (charMatch / seg.length < 0.75) isStrictFail = true;
-                        else totalMatchedLength += charMatch;
+                        // 如果有長英文支撐，中文命中一半就放行；否則嚴格執行 75%
+                        var threshold = hasLongEnglishMatched ? 0.5 : 0.75;
+                        if (charMatch / seg.length < threshold) isStrictFail = true;
+                        else totalScore += (charMatch * 5);
                     }
                 }
             });
 
             if (isStrictFail) return 0;
-            return totalMatchedLength;
+            return totalScore;
         }
 
         function doSearch() {
@@ -102,7 +108,7 @@
                 q.forEach(word => { if(word) name = name.replace(new RegExp("("+word+")", "gi"), '<span class="highlight">$1</span>'); });
                 h += `<div class="item-row"><span class="item-name">${name}</span><div class="meta-line"><div>${r[0]}</div><div>${r[1]}</div></div><button class="btn-save ${MEMO[r[1]]?'done':''}" onclick="save(${idx}, this)">${MEMO[r[1]]?'已存':'暫存'}</button></div>`;
             });
-            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無符合區塊之商品</div>';
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無商品</div>';
             document.getElementById('status').innerText = "命中結果: " + CUR.length + " 筆";
         }
 
@@ -131,7 +137,7 @@
             Object.values(MEMO).forEach(r => {
                 h += `<div class="item-row"><span class="item-name">${r.n}</span><div class="meta-line"><div>${r.d}</div><div>${r.g}</div></div></div>`;
             });
-            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
+            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">清單空空如也</div>';
         }
     </script>
 </body>
