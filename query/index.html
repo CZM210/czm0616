@@ -98,8 +98,8 @@
             // 計算相似度百分比
             var ratio = matchedUnits / totalUnits;
 
-            // 嚴格 75% 門檻 (例如搜尋 3 個單位，必須中 3 個才顯示，因為 2/3 = 66%)
-            if (ratio < 0.75) return { score: 0, ratio: 0 };
+            // 嚴格 66% 門檻 (例如搜尋 3 個單位，必須中 3 個才顯示，因為 2/3 = 66%)
+            if (ratio < 0.66) return { score: 0, ratio: 0 };
 
             // 排序分數：連續性加成
             var compactness = (totalDist > 0) ? (matchedUnits / (matchedUnits + totalDist)) : 1.0;
