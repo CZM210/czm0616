@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-紅利加權版 v4.8</title>
+    <title>商品查詢器-嚴格區塊版 v4.9</title>
     <style>
         :root { --poya: #d63384; --border: #eee; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -20,7 +20,6 @@
         .btn-save { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; }
         .btn-save.done { background: #4caf50; }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
-        .sim-val { color: var(--poya); font-weight: bold; }
         .hidden { display: none; }
     </style>
 </head>
@@ -43,9 +42,9 @@
         var ALL = [], CUR = [], MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
         window.onload = function() {
-            fetch('data.json?v=20260405_v4.8').then(res => res.json()).then(data => {
+            fetch('data.json?v=20260405_v4.9').then(res => res.json()).then(data => {
                 ALL = data;
-                document.getElementById('status').innerText = "系統就緒 (v4.8)";
+                document.getElementById('status').innerText = "系統就緒 (v4.9)";
             });
             updateBadge();
         };
@@ -54,74 +53,57 @@
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
             var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
-            var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
-
-            // 1. 拆解區塊
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
-            if (!segments) return { score: 0, ratio: 0 };
+            if (!segments) return 0;
 
-            var matchedUnits = 0;
-            var matchedChars = 0;
-            var bonusScore = 0;
+            var totalMatchedLength = 0;
+            var isStrictFail = false;
 
             segments.forEach(seg => {
                 var isEngNum = /^[a-z0-9]+$/.test(seg);
                 var foundIdx = cleanName.indexOf(seg);
 
-                if (foundIdx !== -1) {
-                    matchedUnits++;
-                    var baseVal = seg.length;
-                    
-                    // --- 長英文紅利 (4字以上加權 1.5 倍) ---
-                    if (isEngNum && seg.length >= 4) {
-                        matchedChars += (baseVal * 1.5); 
+                if (isEngNum) {
+                    // 英數強匹配：必須成塊出現
+                    if (foundIdx === -1) isStrictFail = true;
+                    else totalMatchedLength += seg.length;
+                } else {
+                    // 中文高標匹配：至少要連續命中 75%
+                    if (foundIdx !== -1) {
+                        totalMatchedLength += seg.length;
                     } else {
-                        matchedChars += baseVal;
-                    }
-                    
-                    // --- 中文連續加分 (品名中包含完整的中文區塊) ---
-                    if (!isEngNum && seg.length > 1) {
-                        bonusScore += 0.1; 
-                    }
-                } else if (!isEngNum) {
-                    // 中文拆字搜尋
-                    for (let c of seg) {
-                        if (cleanName.indexOf(c) !== -1) {
-                            matchedUnits += (1 / seg.length);
-                            matchedChars += 1;
-                        }
+                        var charMatch = 0;
+                        for (let c of seg) { if (cleanName.indexOf(c) !== -1) charMatch++; }
+                        if (charMatch / seg.length < 0.75) isStrictFail = true;
+                        else totalMatchedLength += charMatch;
                     }
                 }
             });
 
-            var unitRatio = matchedUnits / segments.length;
-            var charRatio = matchedChars / cleanQuery.length;
-
-            // 雙重 75% 門檻
-            if (unitRatio < 0.75 && charRatio < 0.75) return { score: 0, ratio: 0 };
-
-            var finalRatio = Math.min(1.0, charRatio + bonusScore);
-            return { score: matchedChars * 100, ratio: finalRatio };
+            if (isStrictFail) return 0;
+            return totalMatchedLength;
         }
 
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
             CUR = ALL.map(r => {
-                var res = calculateSmartRank(val, r[3]);
-                return res.ratio > 0 ? [...r, res.ratio, res.score] : null;
-            }).filter(x => x).sort((a, b) => b[5] - a[5]);
+                var score = calculateSmartRank(val, r[3]);
+                return score > 0 ? [...r, score] : null;
+            }).filter(x => x).sort((a, b) => b[4] - a[4]);
             renderSearchPage();
         }
 
         function renderSearchPage() {
-            var h = '', q = document.getElementById('q').value.trim().split(/\s+/);
+            var h = '', val = document.getElementById('q').value.trim();
+            var q = val.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g) || [];
             CUR.forEach((r, idx) => {
                 var name = r[3];
                 q.forEach(word => { if(word) name = name.replace(new RegExp("("+word+")", "gi"), '<span class="highlight">$1</span>'); });
-                h += `<div class="item-row"><span class="item-name">${name}</span><div class="meta-line"><div>${r[0]}</div><div>${r[1]}</div><div class="sim-val">相似度: ${Math.round(r[4]*100)}%</div></div><button class="btn-save ${MEMO[r[1]]?'done':''}" onclick="save(${idx}, this)">${MEMO[r[1]]?'已存':'暫存'}</button></div>`;
+                h += `<div class="item-row"><span class="item-name">${name}</span><div class="meta-line"><div>${r[0]}</div><div>${r[1]}</div></div><button class="btn-save ${MEMO[r[1]]?'done':''}" onclick="save(${idx}, this)">${MEMO[r[1]]?'已存':'暫存'}</button></div>`;
             });
-            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">未達 75% 門檻</div>';
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無符合區塊之商品</div>';
+            document.getElementById('status').innerText = "命中結果: " + CUR.length + " 筆";
         }
 
         function save(idx, btn) {
