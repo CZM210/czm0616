@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-終極邏輯版 v3.8</title>
+    <title>商品查詢器-英數平權版 v4.1</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -56,7 +56,7 @@
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            var DATA_VERSION = "20260405_v3.8"; 
+            var DATA_VERSION = "20260405_v4.1"; 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
@@ -69,81 +69,43 @@
             updateBadge();
         };
 
-        // --- 核心進化：區塊加權計算法 ---
+        // --- 核心進化：英數平權計算法 ---
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
-            var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
             var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
 
-            if (!cleanQuery) return { score: 0, ratio: 0 };
-
-            // 1. 完全連續命中
-            if (cleanName.indexOf(cleanQuery) !== -1) {
-                return { score: 2000 - (cleanName.length * 0.1), ratio: 1.0 };
-            }
-
-            // 2. 區塊拆分比對
-            var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
+            // 拆解搜尋詞：將英文數字塊視為單一單位，中文拆為單字
+            var segments = query.match(/[\u4E00-\u9FA5]|[a-z0-9]+/g);
             if (!segments) return { score: 0, ratio: 0 };
 
-            var totalMatchPoints = 0;
-            var queryTotalPoints = 0;
+            var totalUnits = segments.length; // 總單位數 (分母)
+            var matchedUnits = 0;
             var lastIdx = -1;
             var totalDist = 0;
-            var matchedBlockCount = 0;
 
             for (var i = 0; i < segments.length; i++) {
                 var seg = segments[i];
-                var isEngNum = /^[a-z0-9]+$/.test(seg);
-                queryTotalPoints += seg.length;
-                
                 var foundIdx = cleanName.indexOf(seg);
 
-                if (isEngNum) {
-                    // 英文數字塊：不拆分，沒中就 0 分
-                    if (foundIdx !== -1) {
-                        totalMatchPoints += seg.length;
-                        matchedBlockCount++;
-                        if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
-                        lastIdx = foundIdx;
-                    }
-                } else {
-                    // 中文塊：優先找區塊，找不到再找單字
-                    if (foundIdx !== -1) {
-                        totalMatchPoints += seg.length;
-                        matchedBlockCount++;
-                        if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
-                        lastIdx = foundIdx;
-                    } else {
-                        var charMatch = 0;
-                        for (var c = 0; c < seg.length; c++) {
-                            var charIdx = cleanName.indexOf(seg.charAt(c));
-                            if (charIdx !== -1) {
-                                charMatch++;
-                                if (lastIdx !== -1) totalDist += Math.abs(charIdx - lastIdx);
-                                lastIdx = charIdx;
-                            }
-                        }
-                        totalMatchPoints += charMatch;
-                        if (charMatch > 0) matchedBlockCount += (charMatch / seg.length);
-                    }
+                if (foundIdx !== -1) {
+                    matchedUnits += 1; // 無論長短，中英文命中均計 1 分
+                    if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
+                    lastIdx = foundIdx;
                 }
             }
 
-            var ratio = totalMatchPoints / queryTotalPoints;
-            // 門檻提高至 75%，且必須有命中任何區塊
+            // 計算相似度百分比
+            var ratio = matchedUnits / totalUnits;
+
+            // 嚴格 75% 門檻 (例如搜尋 3 個單位，必須中 3 個才顯示，因為 2/3 = 66%)
             if (ratio < 0.75) return { score: 0, ratio: 0 };
 
-            // 緊湊度加成：區塊命中的愈完整、距離愈短，分數愈高
-            var compactness = (totalDist > 0) ? (totalMatchPoints / (totalMatchPoints + totalDist)) : 1.0;
-            var score = (totalMatchPoints * 100) * compactness * (matchedBlockCount / segments.length);
-            
-            // 相似度顯示邏輯修正
-            var displayRatio = ratio * (compactness > 0.8 ? 1.0 : compactness);
-            if (displayRatio > 1.0) displayRatio = 1.0;
+            // 排序分數：連續性加成
+            var compactness = (totalDist > 0) ? (matchedUnits / (matchedUnits + totalDist)) : 1.0;
+            var score = (matchedUnits * 1000) * compactness;
 
-            return { score: score, ratio: displayRatio };
+            return { score: score, ratio: ratio };
         }
 
         async function sendLog(q, count) {
@@ -168,7 +130,7 @@
                 if (res.score > 0) {
                     var entry = ALL[i].slice();
                     entry[2] = Math.round(res.ratio * 100) + '%';
-                    entry.push(res.score); entry.push(res.ratio);
+                    entry.push(res.score);
                     CUR.push(entry);
                 }
             }
@@ -193,8 +155,8 @@
                 h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div class="sim-val">相似度: ' + simText + '</div></div>';
                 h += '<button class="btn-save '+(MEMO[r[1]]?'done':'')+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
             }
-            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">未達 75% 相似度或無資料</div>';
-            document.getElementById('status').innerHTML = "搜尋結果: " + CUR.length + " 筆";
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">相似度未達 75% 已隱藏</div>';
+            document.getElementById('status').innerHTML = "搜尋結果: " + CUR.length + " 筆 (單位基準: 英數不拆=1)";
         }
 
         function save(idx, btn) {
