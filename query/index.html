@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-權重修正版 v3.5</title>
+    <title>商品查詢器-終極邏輯版 v3.7</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -22,8 +22,8 @@
         .btn-save { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; }
         .btn-save.done { background: #4caf50; }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
-        .hidden { display: none; }
         .sim-val { color: var(--poya); font-weight: bold; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -52,12 +52,11 @@
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
-        
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            var DATA_VERSION = "20260405_v3.5"; 
+            var DATA_VERSION = "20260405_v3.7"; 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
@@ -70,7 +69,7 @@
             updateBadge();
         };
 
-        // --- 核心進化：嚴格塊狀比對演算法 ---
+        // --- 終極權重邏輯 ---
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
@@ -79,13 +78,12 @@
 
             if (!cleanQuery) return { score: 0, ratio: 0 };
 
-            // 1. 完全連續命中 (絕對最高分)
-            var directIdx = cleanName.indexOf(cleanQuery);
-            if (directIdx !== -1) {
+            // 1. 連續完全命中 (優先權最高)
+            if (cleanName.indexOf(cleanQuery) !== -1) {
                 return { score: 1000 - (cleanName.length * 0.1), ratio: 1.0 };
             }
 
-            // 2. 英文與數字塊保護：將搜尋詞拆解成「中文塊」與「英文數字塊」
+            // 2. 混合比對：拆分區塊
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return { score: 0, ratio: 0 };
 
@@ -95,25 +93,47 @@
 
             for (var i = 0; i < segments.length; i++) {
                 var seg = segments[i];
-                var foundIdx = cleanName.indexOf(seg, lastIdx + 1);
-                
-                // 如果是英文或數字塊，必須完整出現
-                if (foundIdx === -1) return { score: 0, ratio: 0 }; 
+                var isEngNum = /^[a-z0-9]+$/.test(seg);
+                var foundIdx = cleanName.indexOf(seg);
 
-                if (lastIdx !== -1) totalDist += (foundIdx - lastIdx);
-                totalMatchLen += seg.length;
-                lastIdx = foundIdx;
+                if (isEngNum) {
+                    // 英文與數字不拆：必須完整包含
+                    if (foundIdx !== -1) {
+                        totalMatchLen += seg.length;
+                        if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
+                        lastIdx = foundIdx;
+                    }
+                } else {
+                    // 中文可拆分搜尋
+                    if (foundIdx !== -1) {
+                        totalMatchLen += seg.length;
+                        if (lastIdx !== -1) totalDist += Math.abs(foundIdx - lastIdx);
+                        lastIdx = foundIdx;
+                    } else {
+                        // 拆字搜尋
+                        for (var c = 0; c < seg.length; c++) {
+                            var char = seg.charAt(c);
+                            var charIdx = cleanName.indexOf(char);
+                            if (charIdx !== -1) {
+                                totalMatchLen += 1;
+                                if (lastIdx !== -1) totalDist += Math.abs(charIdx - lastIdx);
+                                lastIdx = charIdx;
+                            }
+                        }
+                    }
+                }
             }
 
-            // 只有當所有區塊（特別是英文塊）都命中的情況下才計算分值
+            // 3. 75% 門檻檢查
             var ratio = totalMatchLen / cleanQuery.length;
-            var compactness = (segments.length > 1) ? (segments.length - 1) / totalDist : 1;
-            
-            // 分散命中降權，連續命中升權
-            var finalScore = (totalMatchLen * 10) * compactness;
+            if (ratio < 0.75) return { score: 0, ratio: 0 };
+
+            // 計算緊湊度得分
+            var compactness = (totalMatchLen > 1 && totalDist > 0) ? (totalMatchLen / (totalMatchLen + totalDist)) : 0.5;
+            var score = (totalMatchLen * 50) * compactness;
             var finalRatio = ratio * (compactness > 0.8 ? 1.0 : compactness);
 
-            return { score: finalScore, ratio: finalRatio };
+            return { score: score, ratio: finalRatio };
         }
 
         async function sendLog(q, count) {
@@ -122,18 +142,17 @@
                 var response = await fetch('https://api.ipify.org?format=json');
                 var data = await response.json();
                 userIp = data.ip;
-            } catch (e) { console.log("IP偵測跳過"); }
+            } catch (e) { }
             var agent = navigator.userAgent.substring(0, 50);
             var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp + "&agent=" + encodeURIComponent(agent);
             var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent("關鍵字: [" + q + "] - 結果: " + count + " 筆 - IP: " + userIp);
-            var img1 = new Image(); img1.src = oldUrl;
-            var img2 = new Image(); img2.src = newUrl;
+            new Image().src = oldUrl;
+            new Image().src = newUrl;
         }
 
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
-            
             CUR = [];
             for (var i = 0; i < ALL.length; i++) {
                 var r = ALL[i];
@@ -141,8 +160,7 @@
                 if (res.score > 0) {
                     var entry = r.slice();
                     entry[2] = Math.round(res.ratio * 100) + '%';
-                    entry.push(res.score); 
-                    entry.push(res.ratio); 
+                    entry.push(res.score); entry.push(res.ratio);
                     CUR.push(entry);
                 }
             }
@@ -155,7 +173,6 @@
         function renderSearchPage() {
             var h = '', searchVal = document.getElementById('q').value.trim();
             var q = searchVal.replace(/[\+\-\/\(\)]+/g, ' ').split(/\s+/);
-            
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3], simText = r[2];
                 for(var j=0; j<q.length; j++) { 
@@ -164,14 +181,11 @@
                         name = name.replace(new RegExp("("+safeQ+")", "gi"), '<span class="highlight">$1</span>'); 
                     }
                 }
-                var isSaved = MEMO[r[1]] ? 'done' : '';
-                h += '<div class="item-row">';
-                h += '<span class="item-name">' + name + '</span>';
-                h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div class="sim-val">權重相似度: ' + simText + '</div></div>';
-                h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button>';
-                h += '</div>';
+                h += '<div class="item-row"><span class="item-name">' + name + '</span>';
+                h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div class="sim-val">相似度: ' + simText + '</div></div>';
+                h += '<button class="btn-save '+(MEMO[r[1]]?'done':'')+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
             }
-            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無結果</div>';
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">相似度未達標或無資料</div>';
             document.getElementById('status').innerHTML = "搜尋結果: " + CUR.length + " 筆";
         }
 
@@ -188,44 +202,30 @@
         function updateBadge() { document.getElementById('memo-count').innerHTML = Object.keys(MEMO).length; }
 
         function switchTab(m) {
-            if(m === 'search') {
-                document.getElementById('ui-search-header').classList.remove('hidden');
-                document.getElementById('tab-search').classList.add('active');
-                document.getElementById('tab-memo').classList.remove('active');
-                document.getElementById('view-search').classList.remove('hidden');
-                document.getElementById('view-memo').classList.add('hidden');
-            } else {
-                document.getElementById('ui-search-header').classList.add('hidden');
-                document.getElementById('tab-memo').classList.add('active');
-                document.getElementById('tab-search').classList.remove('active');
-                document.getElementById('view-search').classList.add('hidden');
-                document.getElementById('view-memo').classList.remove('hidden');
-                renderMemoPage();
-            }
+            document.getElementById('tab-search').classList.toggle('active', m === 'search');
+            document.getElementById('tab-memo').classList.toggle('active', m === 'memo');
+            document.getElementById('view-search').classList.toggle('hidden', m !== 'search');
+            document.getElementById('view-memo').classList.toggle('hidden', m !== 'memo');
+            document.getElementById('ui-search-header').classList.toggle('hidden', m !== 'search');
+            if(m === 'memo') renderMemoPage();
         }
 
         function renderMemoPage() {
             var h = '', keys = Object.keys(MEMO);
-            if(keys.length === 0) h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
             for (var i = 0; i < keys.length; i++) {
                 var r = MEMO[keys[i]];
-                h += '<div class="memo-row">';
-                h += '<span class="item-name" style="width:100%">' + r.n + '</span>';
-                h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div></div>';
-                h += '<button class="btn-remove" onclick="remove(\''+r.g+'\')">移除</button></div>';
+                h += '<div class="item-row"><span class="item-name" style="width:100%">' + r.n + '</span>';
+                h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div></div></div>';
             }
-            document.getElementById('view-memo').innerHTML = h;
+            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
         }
-
-        function remove(id) { if(confirm('確定移除？')) { delete MEMO[id]; localStorage.setItem('poya_v6', JSON.stringify(MEMO)); updateBadge(); renderMemoPage(); } }
 
         function sort(idx) {
             if(CUR.length == 0) return;
             var f = DIR[idx];
             CUR.sort(function(a, b) { 
-                var vA = a[idx], vB = b[idx]; 
-                if(!isNaN(parseFloat(vA)) && !isNaN(parseFloat(vB))) return (parseFloat(vA) - parseFloat(vB)) * f;
-                return String(vA).localeCompare(String(vB)) * f;
+                var vA = a[idx], vB = b[idx];
+                return (parseFloat(vA) || 0 - parseFloat(vB) || 0) * f || String(vA).localeCompare(String(vB)) * f;
             });
             DIR[idx] *= -1;
             renderSearchPage();
