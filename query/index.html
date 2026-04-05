@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-智慧權重 v3.2</title>
+    <title>商品查詢器-智慧權重優化版 v3.4</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -29,7 +29,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋.. 如：高絲BB">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字..">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
@@ -52,11 +52,9 @@
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
-        var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
-        var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
-
+        
         window.onload = function() {
-            var DATA_VERSION = "20260405_v3.2"; 
+            var DATA_VERSION = "20260405_v3.4"; 
             var xhr = new XMLHttpRequest();
             xhr.open('GET', 'data.json?v=' + DATA_VERSION, true);
             xhr.onreadystatechange = function() {
@@ -69,97 +67,74 @@
             updateBadge();
         };
 
-        // --- 核心升級：英文數字絕對不拆分演算法 ---
+        // --- 核心進化：精確連續性權重演算法 ---
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
             var name = itemName.toLowerCase();
             var cleanQuery = query.replace(/[\s\+\-\/\(\)]+/g, '');
             var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
 
-            // 1. 完全連續命中 (最高權重 200分)
-            if (cleanName.indexOf(cleanQuery) !== -1) {
-                return { score: 200 - (cleanName.length * 0.1), ratio: 1.0 };
+            if (!cleanQuery) return { score: 0, ratio: 0 };
+
+            // 1. 完全連續命中 (給予絕對最高分)
+            var directIdx = cleanName.indexOf(cleanQuery);
+            if (directIdx !== -1) {
+                return { score: 500 - (cleanName.length * 0.1), ratio: 1.0 };
             }
 
-            // 2. 區段塊比對 (英文/數字強制完整出現)
-            var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
-            if (segments && segments.length > 1) {
-                var allMatch = true;
-                var blockScore = 0;
-                for (var i = 0; i < segments.length; i++) {
-                    var seg = segments[i];
-                    var isEngNum = /^[a-z0-9]+$/.test(seg);
-                    
-                    // 關鍵：如果是英文或數字，必須完整出現在品名中
-                    if (cleanName.indexOf(seg) === -1) {
-                        allMatch = false;
-                        break;
-                    }
-                    blockScore += seg.length;
-                }
-                
-                if (allMatch) {
-                    var finalRatio = blockScore / cleanQuery.length;
-                    return { score: 150 + (finalRatio * 10), ratio: finalRatio };
+            // 2. 順序且接近比對 (例如「西西露」中間隔一點點字)
+            // 這邊解決「西班牙...露」分散太遠的問題
+            var lastIdx = -1, matchCount = 0, totalDist = 0;
+            for (var i = 0; i < cleanQuery.length; i++) {
+                var char = cleanQuery.charAt(i);
+                var foundIdx = cleanName.indexOf(char, lastIdx + 1);
+                if (foundIdx !== -1) {
+                    if (lastIdx !== -1) totalDist += (foundIdx - lastIdx);
+                    matchCount++;
+                    lastIdx = foundIdx;
                 }
             }
 
-            // 3. 字元命中率比對 (低權重 50 以下)
-            // 如果搜尋包含英文，但在第二層沒中，此層分數會被極大化削弱
-            var hasEngNum = /[a-z0-9]/.test(cleanQuery);
-            var matchCount = 0;
-            for (var c = 0; c < cleanQuery.length; c++) {
-                if (cleanName.indexOf(cleanQuery.charAt(c)) !== -1) matchCount++;
-            }
             var ratio = matchCount / cleanQuery.length;
+            if (ratio < 0.7) return { score: 0, ratio: 0 };
+
+            // 計算「緊湊度」：如果字跟字隔太遠，分數要大幅扣除
+            // 如果搜尋 3 個字，理想總距離是 2 (字字相連)
+            var compactness = (matchCount > 1) ? (matchCount - 1) / totalDist : 1;
             
-            // 如果有英文但沒過第二層，ratio 被迫降級，防止 Biore 誤判為 100%
-            var finalRatio = hasEngNum ? (ratio * 0.5) : ratio;
+            // 如果是分散命中 (如截圖中的情況)，compactness 會非常小
+            var finalScore = (matchCount * 10) * compactness;
+            
+            // 只要不是連在一起，ratio 就不給 1.0，反映真實體感
+            var finalRatio = ratio * (compactness > 0.8 ? 1.0 : compactness);
 
-            if (finalRatio >= 0.7) {
-                return { score: 50 * finalRatio, ratio: finalRatio };
-            }
-
-            return { score: 0, ratio: 0 };
+            return { score: finalScore, ratio: finalRatio };
         }
 
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
+            
             CUR = [];
             for (var i = 0; i < ALL.length; i++) {
-                var r = ALL[i]; 
-                var result = calculateSmartRank(val, r[3]);
-                if (result.score > 0) {
-                    var entry = r.slice(); 
-                    entry[2] = Math.round(result.ratio * 100) + '%';
-                    entry.push(result.score);
-                    entry.push(result.ratio);
+                var r = ALL[i];
+                var res = calculateSmartRank(val, r[3]);
+                if (res.score > 0) {
+                    var entry = r.slice();
+                    entry[2] = Math.round(res.ratio * 100) + '%';
+                    entry.push(res.score); 
+                    entry.push(res.ratio); 
                     CUR.push(entry);
                 }
             }
             CUR.sort(function(a, b) { return b[4] - a[4]; });
-            if (CUR.length > 100) CUR = CUR.slice(0, 100); 
             renderSearchPage();
-            window.scrollTo(0,0);
-            sendLog(val, CUR.length); 
-        }
-
-        async function sendLog(q, count) {
-            var userIp = "偵測失敗";
-            try {
-                var response = await fetch('https://api.ipify.org?format=json');
-                var data = await response.json();
-                userIp = data.ip;
-            } catch (e) { console.log("IP偵測跳過"); }
-            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp + "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
-            var newUrl = NEW_GAS_URL + "?action=record&type=執行搜尋&content=" + encodeURIComponent("關鍵字: [" + q + "] - 結果: " + count + " 筆 - IP: " + userIp);
-            new Image().src = oldUrl; new Image().src = newUrl;
         }
 
         function renderSearchPage() {
             var h = '', searchVal = document.getElementById('q').value.trim();
             var q = searchVal.replace(/[\+\-\/\(\)]+/g, ' ').split(/\s+/);
+            
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i], name = r[3], simText = r[2];
                 for(var j=0; j<q.length; j++) { 
@@ -168,9 +143,12 @@
                         name = name.replace(new RegExp("("+safeQ+")", "gi"), '<span class="highlight">$1</span>'); 
                     }
                 }
-                h += '<div class="item-row"><span class="item-name">' + name + '</span>';
+                var isSaved = MEMO[r[1]] ? 'done' : '';
+                h += '<div class="item-row">';
+                h += '<span class="item-name">' + name + '</span>';
                 h += '<div class="meta-line"><div>' + r[0] + '</div><div>' + r[1] + '</div><div class="sim-val">相似度: ' + simText + '</div></div>';
-                h += '<button class="btn-save '+(MEMO[r[1]]?'done':'')+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
+                h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button>';
+                h += '</div>';
             }
             document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無結果</div>';
             document.getElementById('status').innerHTML = "搜尋結果: " + CUR.length + " 筆";
@@ -181,18 +159,28 @@
             if(!MEMO[r[1]]) {
                 MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "" };
                 localStorage.setItem('poya_v6', JSON.stringify(MEMO));
-                updateBadge(); btn.innerHTML = "已存"; btn.classList.add('done');
+                updateBadge();
+                btn.innerHTML = "已存"; btn.classList.add('done');
             }
         }
 
         function updateBadge() { document.getElementById('memo-count').innerHTML = Object.keys(MEMO).length; }
+
         function switchTab(m) {
-            document.getElementById('ui-search-header').className = (m==='search'?'':'hidden');
-            document.getElementById('tab-search').className = 'nav-btn '+(m==='search'?'active':'');
-            document.getElementById('tab-memo').className = 'nav-btn '+(m==='memo'?'active':'');
-            document.getElementById('view-search').className = (m==='search'?'':'hidden');
-            document.getElementById('view-memo').className = (m==='memo'?'':'hidden');
-            if(m==='memo') renderMemoPage();
+            if(m === 'search') {
+                document.getElementById('ui-search-header').classList.remove('hidden');
+                document.getElementById('tab-search').classList.add('active');
+                document.getElementById('tab-memo').classList.remove('active');
+                document.getElementById('view-search').classList.remove('hidden');
+                document.getElementById('view-memo').classList.add('hidden');
+            } else {
+                document.getElementById('ui-search-header').classList.add('hidden');
+                document.getElementById('tab-memo').classList.add('active');
+                document.getElementById('tab-search').classList.remove('active');
+                document.getElementById('view-search').classList.add('hidden');
+                document.getElementById('view-memo').classList.remove('hidden');
+                renderMemoPage();
+            }
         }
 
         function renderMemoPage() {
@@ -200,25 +188,22 @@
             if(keys.length === 0) h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
             for (var i = 0; i < keys.length; i++) {
                 var r = MEMO[keys[i]];
-                h += '<div class="memo-row"><span class="item-name" style="width:100%">' + r.n + '</span>';
-                h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div></div>';
-                h += '<textarea class="memo-input" placeholder="備註..." oninput="updateNote(\''+r.g+'\', this.value)">' + r.note + '</textarea>';
-                h += '<button class="btn-remove" onclick="remove(\''+r.g+'\')">移除</button></div>';
+                h += '<div class="item-row"><span class="item-name" style="width:100%">' + r.n + '</span>';
+                h += '<div class="meta-line"><div>' + r.d + '</div><div>' + r.g + '</div></div></div>';
             }
             document.getElementById('view-memo').innerHTML = h;
         }
 
-        function updateNote(id, txt) { if(MEMO[id]) { MEMO[id].note = txt; localStorage.setItem('poya_v6', JSON.stringify(MEMO)); } }
-        function remove(id) { if(confirm('確定移除？')) { delete MEMO[id]; localStorage.setItem('poya_v6', JSON.stringify(MEMO)); updateBadge(); renderMemoPage(); } }
         function sort(idx) {
             if(CUR.length == 0) return;
             var f = DIR[idx];
             CUR.sort(function(a, b) { 
                 var vA = a[idx], vB = b[idx]; 
-                if(!isNaN(parseFloat(vA)) && !isNaN(parseFloat(vB))) return (vA - vB) * f;
+                if(!isNaN(parseFloat(vA)) && !isNaN(parseFloat(vB))) return (parseFloat(vA) - parseFloat(vB)) * f;
                 return String(vA).localeCompare(String(vB)) * f;
             });
-            DIR[idx] *= -1; renderSearchPage();
+            DIR[idx] *= -1;
+            renderSearchPage();
         }
     </script>
 </body>
