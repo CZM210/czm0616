@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器-智慧加權版 v5.0</title>
+    <title>商品查詢器-智慧加權版 v5.1</title>
     <style>
         :root { --poya: #d63384; --border: #eee; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -33,7 +33,7 @@
             <button id="tab-search" class="nav-btn active" onclick="switchTab('search')">搜尋結果</button>
             <button id="tab-memo" class="nav-btn" onclick="switchTab('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
         </div>
-        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒 (v5.0)</div>
+        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒 (v5.1)</div>
     </div>
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
@@ -41,12 +41,30 @@
     <script type="text/javascript">
         var ALL = [], CUR = [], MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         
+        // --- 恢復回傳機制網址 ---
+        var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
+        var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
+
         window.onload = function() {
-            fetch('data.json?v=20260405_v5.0').then(res => res.json()).then(data => {
+            fetch('data.json?v=20260405_v5.1').then(res => res.json()).then(data => {
                 ALL = data;
             });
             updateBadge();
         };
+
+        // --- 恢復 sendLog 功能 ---
+        async function sendLog(q, count) {
+            var userIp = "偵測失敗";
+            try {
+                var response = await fetch('https://api.ipify.org?format=json');
+                var data = await response.json();
+                userIp = data.ip;
+            } catch (e) { console.log("IP偵測跳過"); }
+            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp;
+            var newUrl = NEW_GAS_URL + "?action=record&type=查詢&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆");
+            new Image().src = oldUrl;
+            new Image().src = newUrl;
+        }
 
         function calculateSmartRank(userInput, itemName) {
             var query = userInput.trim().toLowerCase();
@@ -64,21 +82,18 @@
                 var foundIdx = cleanName.indexOf(seg);
 
                 if (isEngNum) {
-                    // 英文區塊：不可拆分
                     if (foundIdx === -1) {
                         isStrictFail = true;
                     } else {
                         totalScore += (seg.length * 10);
-                        if (seg.length >= 4) hasLongEnglishMatched = true; // 標記長英文命中
+                        if (seg.length >= 4) hasLongEnglishMatched = true;
                     }
                 } else {
-                    // 中文區塊：動態放行
                     if (foundIdx !== -1) {
                         totalScore += (seg.length * 10);
                     } else {
                         var charMatch = 0;
                         for (let c of seg) { if (cleanName.indexOf(c) !== -1) charMatch++; }
-                        // 如果有長英文支撐，中文命中一半就放行；否則嚴格執行 75%
                         var threshold = hasLongEnglishMatched ? 0.5 : 0.75;
                         if (charMatch / seg.length < threshold) isStrictFail = true;
                         else totalScore += (charMatch * 5);
@@ -98,6 +113,10 @@
                 return score > 0 ? [...r, score] : null;
             }).filter(x => x).sort((a, b) => b[4] - a[4]);
             renderSearchPage();
+            
+            // --- 點擊查詢時呼叫回傳 ---
+            window.scrollTo(0,0);
+            sendLog(val, CUR.length); 
         }
 
         function renderSearchPage() {
