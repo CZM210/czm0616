@@ -73,17 +73,28 @@
             updateBadge();
         };
 
-        async function sendLog(q, count) {
+	async function sendLog(q, count) {
             var userIp = "偵測失敗";
             try {
                 var response = await fetch('https://api.ipify.org?format=json');
                 var data = await response.json();
                 userIp = data.ip;
-            } catch (e) { }
-            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp;
-            var newUrl = NEW_GAS_URL + "?action=record&type=查詢&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " | IP: " + userIp);
-            new Image().src = oldUrl;
-            new Image().src = newUrl;
+            } catch (e) { console.log("IP API Timeout"); }
+
+            // 舊版回傳 (補回 agent 參數，確保與你第二版完全一致)
+            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
+                         "&count=" + count + 
+                         "&ip=" + userIp + 
+                         "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
+            
+            // 新版回傳 (重點修正：type=查詢 必須經過 encodeURIComponent 編碼)
+            var newUrl = NEW_GAS_URL + "?action=record" + 
+                         "&type=" + encodeURIComponent("查詢") + 
+                         "&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆 | IP: " + userIp);
+
+            // 使用最穩定的 fetch (no-cors) 進行背景發送
+            fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old log error"));
+            fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
         }
 
         function calculateSmartRank(userInput, r) {
