@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>商品查詢器-智慧加權版 v5.1</title>
+    <style>
+        :root { --poya: #d63384; --border: #eee; }
+        body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
+        .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .search-box { display: flex; padding: 8px; }
+        input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 5px; }
+        .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
+        .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
+        .nav-btn.active { color: var(--poya); background: #fdf2f7; }
+        .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; background: #fff; }
+        .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 85%; }
+        .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; }
+        .btn-save { position: absolute; right: 15px; top: 12px; background: var(--poya); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; }
+        .btn-save.done { background: #4caf50; }
+        .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="sticky-header">
+        <div class="search-box">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="搜尋關鍵字..">
+            <button class="btn-main" onclick="doSearch()">查詢</button>
+        </div>
+        <div class="nav-row">
+            <button id="tab-search" class="nav-btn active" onclick="switchTab('search')">搜尋結果</button>
+            <button id="tab-memo" class="nav-btn" onclick="switchTab('memo')">暫存清單 (<span id="memo-count">0</span>)</button>
+        </div>
+        <div id="status" class="status-bar" style="padding:5px 10px; font-size:12px; background:#f8f9fa; border-bottom:1px solid #eee;">就緒 (v5.1)</div>
+    </div>
+    <div id="view-search"></div>
+    <div id="view-memo" class="hidden"></div>
+
+    <script type="text/javascript">
+        var ALL = [], CUR = [], MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
+        
+        // --- 恢復回傳機制網址 ---
+        var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
+        var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
+
+        window.onload = function() {
+            fetch('data.json?v=20260405_v5.1').then(res => res.json()).then(data => {
+                ALL = data;
+            });
+            updateBadge();
+        };
+
+        // --- 恢復 sendLog 功能 ---
+        async function sendLog(q, count) {
+            var userIp = "偵測失敗";
+            try {
+                var response = await fetch('https://api.ipify.org?format=json');
+                var data = await response.json();
+                userIp = data.ip;
+            } catch (e) { console.log("IP偵測跳過"); }
+            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp;
+            var newUrl = NEW_GAS_URL + "?action=record&type=查詢&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆");
+            new Image().src = oldUrl;
+            new Image().src = newUrl;
+        }
+
+        function calculateSmartRank(userInput, itemName) {
+            var query = userInput.trim().toLowerCase();
+            var name = itemName.toLowerCase();
+            var cleanName = name.replace(/[\s\+\-\/\(\)]+/g, '');
+            var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
+            if (!segments) return 0;
+
+            var totalScore = 0;
+            var isStrictFail = false;
+            var hasLongEnglishMatched = false;
+
+            segments.forEach(seg => {
+                var isEngNum = /^[a-z0-9]+$/.test(seg);
+                var foundIdx = cleanName.indexOf(seg);
+
+                if (isEngNum) {
+                    if (foundIdx === -1) {
+                        isStrictFail = true;
+                    } else {
+                        totalScore += (seg.length * 10);
+                        if (seg.length >= 4) hasLongEnglishMatched = true;
+                    }
+                } else {
+                    if (foundIdx !== -1) {
+                        totalScore += (seg.length * 10);
+                    } else {
+                        var charMatch = 0;
+                        for (let c of seg) { if (cleanName.indexOf(c) !== -1) charMatch++; }
+                        var threshold = hasLongEnglishMatched ? 0.5 : 0.75;
+                        if (charMatch / seg.length < threshold) isStrictFail = true;
+                        else totalScore += (charMatch * 5);
+                    }
+                }
+            });
+
+            if (isStrictFail) return 0;
+            return totalScore;
+        }
+
+        function doSearch() {
+            var val = document.getElementById('q').value.trim();
+            if(!val) return;
+            CUR = ALL.map(r => {
+                var score = calculateSmartRank(val, r[3]);
+                return score > 0 ? [...r, score] : null;
+            }).filter(x => x).sort((a, b) => b[4] - a[4]);
+            renderSearchPage();
+            
+            // --- 點擊查詢時呼叫回傳 ---
+            window.scrollTo(0,0);
+            sendLog(val, CUR.length); 
+        }
+
+        function renderSearchPage() {
+            var h = '', val = document.getElementById('q').value.trim();
+            var q = val.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g) || [];
+            CUR.forEach((r, idx) => {
+                var name = r[3];
+                q.forEach(word => { if(word) name = name.replace(new RegExp("("+word+")", "gi"), '<span class="highlight">$1</span>'); });
+                h += `<div class="item-row"><span class="item-name">${name}</span><div class="meta-line"><div>${r[0]}</div><div>${r[1]}</div></div><button class="btn-save ${MEMO[r[1]]?'done':''}" onclick="save(${idx}, this)">${MEMO[r[1]]?'已存':'暫存'}</button></div>`;
+            });
+            document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無商品</div>';
+            document.getElementById('status').innerText = "命中結果: " + CUR.length + " 筆";
+        }
+
+        function save(idx, btn) {
+            var r = CUR[idx];
+            if(!MEMO[r[1]]) {
+                MEMO[r[1]] = { d: r[0], g: r[1], n: r[3] };
+                localStorage.setItem('poya_v6', JSON.stringify(MEMO));
+                updateBadge();
+                btn.innerText = "已存"; btn.classList.add('done');
+            }
+        }
+
+        function updateBadge() { document.getElementById('memo-count').innerText = Object.keys(MEMO).length; }
+
+        function switchTab(m) {
+            document.getElementById('tab-search').classList.toggle('active', m === 'search');
+            document.getElementById('tab-memo').classList.toggle('active', m === 'memo');
+            document.getElementById('view-search').classList.toggle('hidden', m !== 'search');
+            document.getElementById('view-memo').classList.toggle('hidden', m !== 'memo');
+            if(m === 'memo') renderMemoPage();
+        }
+
+        function renderMemoPage() {
+            var h = '';
+            Object.values(MEMO).forEach(r => {
+                h += `<div class="item-row"><span class="item-name">${r.n}</span><div class="meta-line"><div>${r.d}</div><div>${r.g}</div></div></div>`;
+            });
+            document.getElementById('view-memo').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">清單空空如也</div>';
+        }
+    </script>
+</body>
+</html>
