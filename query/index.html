@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.2</title>
+    <title>商品查詢器 v5.4</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
@@ -36,7 +36,7 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="貨價品名為主..">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="品名或國碼..">
             <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
@@ -47,10 +47,9 @@
             <div class="sort-row">
                 <button class="sort-btn" onclick="sort(0)">部門 ↕</button>
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
-                <button class="sort-btn" onclick="sort(2)">店碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
-            <div id="status" class="status-bar">就緒 (v5.2)</div>
+            <div id="status" class="status-bar">就緒 (v5.4)</div>
         </div>
         <div id="ui-memo-header" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄備註</div></div>
     </div>
@@ -64,7 +63,7 @@
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            var DATA_VERSION = "20260407_v5.2";
+            var DATA_VERSION = "20260407_v5.4";
             fetch('data.json?v=' + DATA_VERSION).then(res => res.json()).then(data => {
                 ALL = data;
                 document.getElementById('status').innerText = "系統就緒 (" + DATA_VERSION + ")";
@@ -74,29 +73,25 @@
             updateBadge();
         };
 
-        // --- 發報系統 ---
         async function sendLog(q, count) {
             var userIp = "偵測失敗";
             try {
                 var response = await fetch('https://api.ipify.org?format=json');
                 var data = await response.json();
                 userIp = data.ip;
-            } catch (e) { console.log("IP API Timeout"); }
+            } catch (e) { }
             var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp;
             var newUrl = NEW_GAS_URL + "?action=record&type=查詢&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " | IP: " + userIp);
             new Image().src = oldUrl;
             new Image().src = newUrl;
         }
 
-        // --- 核心演算法：支援國碼/店碼 + 雙重門檻 ---
         function calculateSmartRank(userInput, r) {
             var query = userInput.trim().toLowerCase();
             var itemName = r[3].toLowerCase();
             var barcode = r[1].toLowerCase();
-            var storeCode = r[2].toLowerCase();
 
-            // 1. 國碼或店碼精確/部分比對 (絕對最高分)
-            if (barcode.includes(query) || storeCode.includes(query)) return 10000;
+            if (barcode.includes(query)) return 10000;
 
             var cleanName = itemName.replace(/[\s\+\-\/\(\)]+/g, '');
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
@@ -147,7 +142,6 @@
             });
 
             if (isStrictFail) return 0;
-            // 緊湊度計算：字元距離越近分數越高
             var compactness = (totalDist > 0) ? (matchedChars / (matchedChars + totalDist)) : 1.0;
             return (matchedChars * 100) * compactness;
         }
@@ -177,7 +171,6 @@
             for (var i = 0; i < CUR.length; i++) {
                 var r = CUR[i];
                 var name = r[3];
-                // 安全的高光替換，防止正則符號崩潰
                 q.forEach(word => { 
                     if(word) {
                         var safeQ = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -186,18 +179,18 @@
                 });
                 var isSaved = MEMO[r[1]] ? 'done' : '';
                 h += '<div class="item-row"><span class="item-name">'+name+'</span>';
-                h += '<div class="meta-line"><div>'+r[0]+'</div><div>'+r[1]+'</div><div>'+r[2]+'</div></div>';
+                h += '<div class="meta-line"><div>'+r[0]+'</div><div>'+r[1]+'</div></div>';
                 h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
             }
             document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無商品或未達相似度門檻</div>';
             document.getElementById('status').innerText = "命中結果: " + CUR.length + " 筆";
         }
 
-        // --- 暫存器相關功能 ---
         function save(idx, btn) {
             var r = CUR[idx];
             if(!MEMO[r[1]]) {
-                MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 1 };
+                // 將預設 qty 設為 0
+                MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
                 btn.innerText = "已存"; btn.classList.add('done');
             }
@@ -208,22 +201,23 @@
             if(keys.length === 0) h = '<div style="padding:50px;text-align:center;color:#999;">暫存清單是空的</div>';
             keys.forEach(id => {
                 var r = MEMO[id];
-                var qty = r.qty || 1; // 相容舊版資料
+                var qty = r.qty !== undefined ? r.qty : 0; 
                 var note = r.note || "";
                 
                 h += '<div class="memo-row"><div class="memo-top">';
                 h += '<div class="qty-box"><button class="qty-btn" onclick="changeQty(\''+id+'\',-1)">-</button><div class="qty-num">'+qty+'</div><button class="qty-btn" onclick="changeQty(\''+id+'\',1)">+</button></div>';
                 h += '<div style="flex:1;overflow:hidden;"><span class="item-name" style="width:100%">'+r.n+'</span></div></div>';
-                h += '<div class="meta-line"><div>'+r.d+'</div><div>'+r.g+'</div><div>'+r.s+'</div></div>';
+                h += '<div class="meta-line"><div>'+r.d+'</div><div>'+r.g+'</div></div>';
                 h += '<textarea class="memo-input" placeholder="點擊記錄備註..." oninput="updateNote(\''+id+'\', this.value)">'+note+'</textarea>';
                 h += '<button class="btn-remove" onclick="remove(\''+id+'\')">移除</button></div>';
             });
             document.getElementById('view-memo').innerHTML = h;
         }
 
+        // 移除 Math.max 限制，允許出現負數
         function changeQty(id, delta) { 
             if(MEMO[id]) { 
-                MEMO[id].qty = Math.max(0, (MEMO[id].qty || 1) + delta); 
+                MEMO[id].qty = (MEMO[id].qty !== undefined ? MEMO[id].qty : 0) + delta; 
                 sync(); 
                 renderMemoPage(); 
             } 
@@ -232,7 +226,7 @@
         function updateNote(id, txt) { 
             if(MEMO[id]) { 
                 MEMO[id].note = txt; 
-                localStorage.setItem('poya_v6', JSON.stringify(MEMO)); // 不呼叫sync避免中斷輸入
+                localStorage.setItem('poya_v6', JSON.stringify(MEMO)); 
             } 
         }
         
@@ -253,7 +247,6 @@
             document.getElementById('memo-count').innerText = Object.keys(MEMO).length; 
         }
 
-        // --- UI 切換與排序 ---
         function switchTab(m) {
             document.getElementById('tab-search').classList.toggle('active', m === 'search');
             document.getElementById('tab-memo').classList.toggle('active', m === 'memo');
