@@ -63,7 +63,7 @@
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
         window.onload = function() {
-            var DATA_VERSION = "20260407_v5.4.1";
+            var DATA_VERSION = "20260407_v5.4";
             fetch('data.json?v=' + DATA_VERSION).then(res => res.json()).then(data => {
                 ALL = data;
                 document.getElementById('status').innerText = "系統就緒 (" + DATA_VERSION + ")";
