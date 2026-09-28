@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.5</title>
+    <title>商品查詢器 v5.6</title>
     <!-- 引入條碼掃描套件 -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -21,7 +21,7 @@
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
         .item-row { padding: 12px 15px; border-bottom: 1px solid var(--border); position: relative; background: #fff; }
         .item-name { font-size: 16px; font-weight: bold; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; margin-bottom: 4px; width: 80%; }
-        .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; }
+        .meta-line { font-size: 14px; color: #666; font-family: monospace; display: flex; gap: 15px; align-items: center; }
         .memo-row { padding: 12px 10px; border-bottom: 1px solid var(--border); background: #fff; position: relative; }
         .memo-top { display: flex; align-items: center; margin-bottom: 6px; }
         .qty-box { display: flex; align-items: center; margin-right: 12px; }
@@ -32,6 +32,17 @@
         .btn-save.done { background: #4caf50; }
         .btn-remove { position: absolute; right: 10px; top: 12px; background: #999; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
+        
+        /* 完全相符的國碼背景色 */
+        .exact-barcode {
+            background-color: var(--poya);
+            color: #ffffff !important;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
         .status-bar { padding: 5px 10px; font-size: 12px; background: #f8f9fa; border-bottom: 1px solid #eee; text-align: center; color: #666; }
         .hidden { display: none !important; }
 
@@ -103,7 +114,7 @@
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
-            <div id="status" class="status-bar">就緒 (v5.5)</div>
+            <div id="status" class="status-bar">就緒 (v5.6)</div>
         </div>
         <div id="ui-memo-header" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄備註</div></div>
     </div>
@@ -163,7 +174,7 @@
             fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
         }
 
-        // 提取系列主幹（自動截掉 -金、-黑、/奶茶、(銀) 等規格尾綴）
+        // 提取系列主幹（自動截除顏色與規格）
         function getBaseSeriesName(name) {
             var str = String(name || '').trim();
             str = str.replace(/[\-_/（\(].*$/, '');
@@ -171,7 +182,7 @@
             return str.trim();
         }
 
-        // 雙向相似度計算
+        // 雙向文字相似度
         function getSimilarity(s1, s2) {
             var c1 = String(s1 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
             var c2 = String(s2 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
@@ -262,15 +273,14 @@
             if(!val) return;
             CUR = [];
 
-            // 關鍵修改：只要是 13 或 14 碼純數字條碼，皆啟動系列聯想機制！
+            // 支援 13 或 14 碼純數字條碼觸發同系列聯想
             var isBarcode = /^\d{13,14}$/.test(val);
 
             if (isBarcode) {
-                // 1. 尋找與該條碼完全相同的商品
                 var exactItem = ALL.find(item => String(item[1]).trim() === val);
 
                 if (exactItem) {
-                    // 原商品置頂（最高分 100000）
+                    // 完全命中的該商品置頂 (100000 分)
                     var exactEntry = exactItem.slice();
                     exactEntry.push(100000);
                     CUR.push(exactEntry);
@@ -278,19 +288,17 @@
                     var baseName = getBaseSeriesName(exactItem[3]);
                     var rawBase = exactItem[3];
 
-                    // 2. 自動拉出同系列其他顏色/規格
+                    // 找出同系列其他款式
                     for (var i = 0; i < ALL.length; i++) {
                         var target = ALL[i];
                         if (String(target[1]).trim() === val) continue;
 
                         var targetName = target[3];
                         var sim = Math.max(getSimilarity(baseName, targetName), getSimilarity(rawBase, targetName));
-
-                        // 判斷相似度 >= 60% 或 包含主幹品名
                         var isSeriesMatch = (baseName.length >= 3 && targetName.includes(baseName));
+
                         if (sim >= 0.60 || isSeriesMatch) {
                             var entry = target.slice();
-                            // 同部門再給予加權優先排在前面
                             var deptBonus = (target[0] === exactItem[0]) ? 2000 : 0;
                             var score = Math.round(sim * 1000) + deptBonus;
                             entry.push(score);
@@ -337,9 +345,16 @@
                         name = name.replace(new RegExp("("+safeQ+")", "gi"), '<span class="highlight">$1</span>'); 
                     }
                 });
+                
+                // 判斷國碼是否與輸入值完全相符
+                var isExactBarcode = (String(r[1]).trim() === val);
+                var barcodeHtml = isExactBarcode 
+                    ? '<span class="exact-barcode">' + r[1] + '</span>' 
+                    : '<span>' + r[1] + '</span>';
+
                 var isSaved = MEMO[r[1]] ? 'done' : '';
                 h += '<div class="item-row"><span class="item-name">'+name+'</span>';
-                h += '<div class="meta-line"><div>'+r[0]+'</div><div>'+r[1]+'</div></div>';
+                h += '<div class="meta-line"><div>'+r[0]+'</div><div>'+barcodeHtml+'</div></div>';
                 h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
             }
             document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無商品或未達相似度門檻</div>';
