@@ -35,7 +35,7 @@
         .status-bar { padding: 5px 10px; font-size: 12px; background: #f8f9fa; border-bottom: 1px solid #eee; text-align: center; color: #666; }
         .hidden { display: none !important; }
 
-        /* === 全螢幕掃碼介面彈窗樣式 === */
+        /* 全螢幕相機視窗 */
         #scanner-overlay {
             display: none;
             position: fixed;
@@ -47,15 +47,8 @@
             z-index: 99999;
             overflow: hidden;
         }
-        #reader {
-            width: 100% !important;
-            height: 100% !important;
-        }
-        #reader video {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-        }
+        #reader { width: 100% !important; height: 100% !important; }
+        #reader video { width: 100% !important; height: 100% !important; object-fit: cover !important; }
         .scanner-ui {
             position: absolute;
             top: 0;
@@ -68,24 +61,9 @@
             align-items: center;
             justify-content: center;
         }
-        .scan-tip {
-            color: #ffffff;
-            font-size: 16px;
-            margin-bottom: 25px;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            letter-spacing: 1px;
-        }
-        .scan-box {
-            width: 260px;
-            height: 260px;
-            position: relative;
-        }
-        .corner {
-            position: absolute;
-            width: 26px;
-            height: 26px;
-            border: 4px solid #ffffff;
-        }
+        .scan-tip { color: #ffffff; font-size: 16px; margin-bottom: 25px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+        .scan-box { width: 260px; height: 260px; position: relative; }
+        .corner { position: absolute; width: 26px; height: 26px; border: 4px solid #ffffff; }
         .top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
         .top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 6px 0 0; }
         .bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
@@ -112,7 +90,6 @@
     <div class="sticky-header">
         <div class="search-box">
             <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="品名或國碼..">
-            <!-- 📷 相機掃碼按鈕 -->
             <button class="btn-scan" id="btn-scan" title="開啟相機掃條碼">📷</button>
             <button class="btn-main" id="btn-search" onclick="doSearch()">查詢</button>
         </div>
@@ -134,7 +111,6 @@
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
 
-    <!-- 全螢幕相機掃描介面 (對應你的相機截圖) -->
     <div id="scanner-overlay">
         <div id="reader"></div>
         <div class="scanner-ui">
@@ -187,15 +163,23 @@
             fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
         }
 
-        // === 雙向中文字元 Bigram 相似度演算法 (Sørensen–Dice 系數) ===
+        // 提取系列主幹（自動截掉 -金、-黑、/奶茶、(銀) 等規格尾綴）
+        function getBaseSeriesName(name) {
+            var str = String(name || '').trim();
+            str = str.replace(/[\-_/（\(].*$/, '');
+            str = str.replace(/(金|銀|黑|白|灰|紅|藍|綠|黃|粉|膚|紫|棕|咖|米|奶茶|單入|雙入|組|包|S|M|L|XL)$/gi, '');
+            return str.trim();
+        }
+
+        // 雙向相似度計算
         function getSimilarity(s1, s2) {
-            var c1 = s1.replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
-            var c2 = s2.replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
+            var c1 = String(s1 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
+            var c2 = String(s2 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
+            if (!c1 || !c2) return 0;
             if (c1 === c2) return 1.0;
-            if (c1.length < 2 || c2.length < 2) {
-                var common = 0;
-                for (var char of c1) { if (c2.includes(char)) common++; }
-                return (2.0 * common) / (c1.length + c2.length);
+
+            if (c1.length >= 3 && (c2.includes(c1) || c1.includes(c2))) {
+                return 0.88;
             }
 
             var map = {};
@@ -212,13 +196,14 @@
                     map[pair]--;
                 }
             }
-            return (2.0 * intersection) / ((c1.length - 1) + (c2.length - 1));
+            var total = ((c1.length - 1) + (c2.length - 1));
+            return total > 0 ? (2.0 * intersection) / total : 0;
         }
 
         function calculateSmartRank(userInput, r) {
             var query = userInput.trim().toLowerCase();
-            var itemName = r[3].toLowerCase();
-            var barcode = r[1].toLowerCase();
+            var itemName = String(r[3] || '').toLowerCase();
+            var barcode = String(r[1] || '').trim().toLowerCase();
 
             if (barcode.includes(query)) return 10000;
 
@@ -226,11 +211,8 @@
             var segments = query.match(/[\u4E00-\u9FA5]+|[a-z0-9]+/g);
             if (!segments) return 0;
 
-            var totalScore = 0;
-            var isStrictFail = false;
-            var hasLongEnglishMatched = false;
-            var matchedChars = 0;
-            var totalDist = 0, lastIdx = -1;
+            var totalScore = 0, isStrictFail = false, hasLongEnglishMatched = false;
+            var matchedChars = 0, totalDist = 0, lastIdx = -1;
 
             segments.forEach(seg => {
                 var isEngNum = /^[a-z0-9]+$/.test(seg);
@@ -280,35 +262,42 @@
             if(!val) return;
             CUR = [];
 
-            // 判斷是否為「剛好 14 碼純數字國碼」
-            var is14Barcode = /^\d{14}$/.test(val);
+            // 關鍵修改：只要是 13 或 14 碼純數字條碼，皆啟動系列聯想機制！
+            var isBarcode = /^\d{13,14}$/.test(val);
 
-            if (is14Barcode) {
-                // 1. 找出該 14 碼完全相同的商品
-                var exactItem = ALL.find(item => item[1] === val);
+            if (isBarcode) {
+                // 1. 尋找與該條碼完全相同的商品
+                var exactItem = ALL.find(item => String(item[1]).trim() === val);
 
                 if (exactItem) {
-                    // 將原商品以最高分置頂 (10000 分)
+                    // 原商品置頂（最高分 100000）
                     var exactEntry = exactItem.slice();
-                    exactEntry.push(10000);
+                    exactEntry.push(100000);
                     CUR.push(exactEntry);
 
-                    var baseName = exactItem[3];
+                    var baseName = getBaseSeriesName(exactItem[3]);
+                    var rawBase = exactItem[3];
 
-                    // 2. 遍歷整個資料庫，計算相似度 >= 75% 的同系列商品
+                    // 2. 自動拉出同系列其他顏色/規格
                     for (var i = 0; i < ALL.length; i++) {
                         var target = ALL[i];
-                        if (target[1] === val) continue; // 跳過本商品
+                        if (String(target[1]).trim() === val) continue;
 
-                        var sim = getSimilarity(baseName, target[3]);
-                        if (sim >= 0.75) {
+                        var targetName = target[3];
+                        var sim = Math.max(getSimilarity(baseName, targetName), getSimilarity(rawBase, targetName));
+
+                        // 判斷相似度 >= 60% 或 包含主幹品名
+                        var isSeriesMatch = (baseName.length >= 3 && targetName.includes(baseName));
+                        if (sim >= 0.60 || isSeriesMatch) {
                             var entry = target.slice();
-                            entry.push(Math.round(sim * 1000)); // 以相似度作為排序分數
+                            // 同部門再給予加權優先排在前面
+                            var deptBonus = (target[0] === exactItem[0]) ? 2000 : 0;
+                            var score = Math.round(sim * 1000) + deptBonus;
+                            entry.push(score);
                             CUR.push(entry);
                         }
                     }
                 } else {
-                    // 若無完全相符，降級為一般檢索
                     for (var i = 0; i < ALL.length; i++) {
                         var score = calculateSmartRank(val, ALL[i]);
                         if (score > 0) {
@@ -319,7 +308,6 @@
                     }
                 }
             } else {
-                // 一般品名或非 14 碼搜尋
                 for (var i = 0; i < ALL.length; i++) {
                     var score = calculateSmartRank(val, ALL[i]);
                     if (score > 0) {
@@ -438,7 +426,7 @@
             renderSearchPage();
         }
 
-        // === 條碼相機掃描控制邏輯 ===
+        // 相機控制邏輯
         var html5QrCode = null;
 
         document.getElementById('btn-scan').addEventListener('click', function() {
@@ -451,24 +439,14 @@
 
             html5QrCode.start(
                 { facingMode: "environment" },
-                {
-                    fps: 15,
-                    qrbox: { width: 260, height: 260 }
-                },
+                { fps: 15, qrbox: { width: 260, height: 260 } },
                 function(decodedText) {
-                    // 掃描成功帶入輸入框
                     var cleanCode = decodedText.trim();
                     document.getElementById('q').value = cleanCode;
-                    
-                    // 關閉掃描視窗
                     closeScanner();
-
-                    // 自動執行查詢 (若為14碼將自動觸發系列關聯)
                     doSearch();
                 },
-                function(errorMessage) {
-                    // 偵測中，略過
-                }
+                function(errorMessage) {}
             ).catch(function(err) {
                 alert("相機開啟失敗，請確認已授權瀏覽器使用相機：" + err);
                 closeScanner();
