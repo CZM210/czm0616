@@ -3,17 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.5</title>
-    <!-- 引入條碼掃描套件 -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <title>商品查詢器 v5.4</title>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .search-box { display: flex; padding: 8px; gap: 6px; }
-        input { flex: 1; padding: 10px; font-size: 17px; border: 1px solid #ccc; border-radius: 4px; outline: none; min-width: 0; }
-        .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 16px; }
-        .btn-scan { padding: 0 13px; background: var(--poya); color: white; border: none; border-radius: 4px; font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .search-box { display: flex; padding: 8px; }
+        input { flex: 1; padding: 10px; font-size: 18px; border: 1px solid #ccc; border-radius: 4px; outline: none; }
+        .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; margin-left: 5px; }
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
         .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
@@ -34,87 +31,13 @@
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
         .status-bar { padding: 5px 10px; font-size: 12px; background: #f8f9fa; border-bottom: 1px solid #eee; text-align: center; color: #666; }
         .hidden { display: none !important; }
-
-        /* === 全螢幕掃碼介面彈窗樣式 === */
-        #scanner-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #000;
-            z-index: 99999;
-            overflow: hidden;
-        }
-        #reader {
-            width: 100% !important;
-            height: 100% !important;
-        }
-        #reader video {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-        }
-        .scanner-ui {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-        .scan-tip {
-            color: #ffffff;
-            font-size: 16px;
-            margin-bottom: 25px;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            letter-spacing: 1px;
-        }
-        .scan-box {
-            width: 260px;
-            height: 260px;
-            position: relative;
-        }
-        .corner {
-            position: absolute;
-            width: 26px;
-            height: 26px;
-            border: 4px solid #ffffff;
-        }
-        .top-left { top: 0; left: 0; border-right: none; border-bottom: none; border-radius: 6px 0 0 0; }
-        .top-right { top: 0; right: 0; border-left: none; border-bottom: none; border-radius: 0 6px 0 0; }
-        .bottom-left { bottom: 0; left: 0; border-right: none; border-top: none; border-radius: 0 0 0 6px; }
-        .bottom-right { bottom: 0; right: 0; border-left: none; border-top: none; border-radius: 0 0 6px 0; }
-        .close-btn {
-            position: absolute;
-            bottom: 45px;
-            pointer-events: auto;
-            width: 52px;
-            height: 52px;
-            background: rgba(35, 35, 35, 0.85);
-            color: #ffffff;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            font-size: 22px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
     <div class="sticky-header">
         <div class="search-box">
             <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="品名或國碼..">
-            <!-- 📷 相機掃碼按鈕 -->
-            <button class="btn-scan" id="btn-scan" title="開啟相機掃條碼">📷</button>
-            <button class="btn-main" id="btn-search" onclick="doSearch()">查詢</button>
+            <button class="btn-main" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
             <button id="tab-search" class="nav-btn active" onclick="switchTab('search')">搜尋結果</button>
@@ -126,28 +49,12 @@
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
-            <div id="status" class="status-bar">就緒 (v5.5)</div>
+            <div id="status" class="status-bar">就緒 (v5.4)</div>
         </div>
         <div id="ui-memo-header" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄備註</div></div>
     </div>
-
     <div id="view-search"></div>
     <div id="view-memo" class="hidden"></div>
-
-    <!-- 全螢幕相機掃描介面 (對應你的相機截圖) -->
-    <div id="scanner-overlay">
-        <div id="reader"></div>
-        <div class="scanner-ui">
-            <div class="scan-tip">請將條碼對準方框進行掃描</div>
-            <div class="scan-box">
-                <span class="corner top-left"></span>
-                <span class="corner top-right"></span>
-                <span class="corner bottom-left"></span>
-                <span class="corner bottom-right"></span>
-            </div>
-            <button class="close-btn" id="btn-close-scanner">✕</button>
-        </div>
-    </div>
 
     <script type="text/javascript">
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
@@ -166,7 +73,7 @@
             updateBadge();
         };
 
-        async function sendLog(q, count) {
+	async function sendLog(q, count) {
             var userIp = "偵測失敗";
             try {
                 var response = await fetch('https://api.ipify.org?format=json');
@@ -174,45 +81,20 @@
                 userIp = data.ip;
             } catch (e) { console.log("IP API Timeout"); }
 
+            // 舊版回傳 (補回 agent 參數，確保與你第二版完全一致)
             var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
                          "&count=" + count + 
                          "&ip=" + userIp + 
                          "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
             
+            // 新版回傳 (重點修正：type=查詢 必須經過 encodeURIComponent 編碼)
             var newUrl = NEW_GAS_URL + "?action=record" + 
                          "&type=" + encodeURIComponent("查詢") + 
                          "&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆 | IP: " + userIp);
 
+            // 使用最穩定的 fetch (no-cors) 進行背景發送
             fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old log error"));
             fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
-        }
-
-        // === 雙向中文字元 Bigram 相似度演算法 (Sørensen–Dice 系數) ===
-        function getSimilarity(s1, s2) {
-            var c1 = s1.replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
-            var c2 = s2.replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
-            if (c1 === c2) return 1.0;
-            if (c1.length < 2 || c2.length < 2) {
-                var common = 0;
-                for (var char of c1) { if (c2.includes(char)) common++; }
-                return (2.0 * common) / (c1.length + c2.length);
-            }
-
-            var map = {};
-            for (var i = 0; i < c1.length - 1; i++) {
-                var pair = c1.substr(i, 2);
-                map[pair] = (map[pair] || 0) + 1;
-            }
-
-            var intersection = 0;
-            for (var j = 0; j < c2.length - 1; j++) {
-                var pair = c2.substr(j, 2);
-                if (map[pair] && map[pair] > 0) {
-                    intersection++;
-                    map[pair]--;
-                }
-            }
-            return (2.0 * intersection) / ((c1.length - 1) + (c2.length - 1));
         }
 
         function calculateSmartRank(userInput, r) {
@@ -279,57 +161,14 @@
             var val = document.getElementById('q').value.trim();
             if(!val) return;
             CUR = [];
-
-            // 判斷是否為「剛好 14 碼純數字國碼」
-            var is14Barcode = /^\d{14}$/.test(val);
-
-            if (is14Barcode) {
-                // 1. 找出該 14 碼完全相同的商品
-                var exactItem = ALL.find(item => item[1] === val);
-
-                if (exactItem) {
-                    // 將原商品以最高分置頂 (10000 分)
-                    var exactEntry = exactItem.slice();
-                    exactEntry.push(10000);
-                    CUR.push(exactEntry);
-
-                    var baseName = exactItem[3];
-
-                    // 2. 遍歷整個資料庫，計算相似度 >= 75% 的同系列商品
-                    for (var i = 0; i < ALL.length; i++) {
-                        var target = ALL[i];
-                        if (target[1] === val) continue; // 跳過本商品
-
-                        var sim = getSimilarity(baseName, target[3]);
-                        if (sim >= 0.75) {
-                            var entry = target.slice();
-                            entry.push(Math.round(sim * 1000)); // 以相似度作為排序分數
-                            CUR.push(entry);
-                        }
-                    }
-                } else {
-                    // 若無完全相符，降級為一般檢索
-                    for (var i = 0; i < ALL.length; i++) {
-                        var score = calculateSmartRank(val, ALL[i]);
-                        if (score > 0) {
-                            var entry = ALL[i].slice();
-                            entry.push(score);
-                            CUR.push(entry);
-                        }
-                    }
-                }
-            } else {
-                // 一般品名或非 14 碼搜尋
-                for (var i = 0; i < ALL.length; i++) {
-                    var score = calculateSmartRank(val, ALL[i]);
-                    if (score > 0) {
-                        var entry = ALL[i].slice();
-                        entry.push(score);
-                        CUR.push(entry);
-                    }
+            for (var i = 0; i < ALL.length; i++) {
+                var score = calculateSmartRank(val, ALL[i]);
+                if (score > 0) {
+                    var entry = ALL[i].slice();
+                    entry.push(score);
+                    CUR.push(entry);
                 }
             }
-
             CUR.sort(function(a, b) { return b[4] - a[4]; });
             renderSearchPage();
             window.scrollTo(0,0);
@@ -361,6 +200,7 @@
         function save(idx, btn) {
             var r = CUR[idx];
             if(!MEMO[r[1]]) {
+                // 將預設 qty 設為 0
                 MEMO[r[1]] = { d: r[0], g: r[1], s: r[2], n: r[3], note: "", qty: 0 };
                 sync();
                 btn.innerText = "已存"; btn.classList.add('done');
@@ -385,6 +225,7 @@
             document.getElementById('view-memo').innerHTML = h;
         }
 
+        // 移除 Math.max 限制，允許出現負數
         function changeQty(id, delta) { 
             if(MEMO[id]) { 
                 MEMO[id].qty = (MEMO[id].qty !== undefined ? MEMO[id].qty : 0) + delta; 
@@ -436,58 +277,6 @@
             });
             DIR[idx] *= -1;
             renderSearchPage();
-        }
-
-        // === 條碼相機掃描控制邏輯 ===
-        var html5QrCode = null;
-
-        document.getElementById('btn-scan').addEventListener('click', function() {
-            var overlay = document.getElementById('scanner-overlay');
-            overlay.style.display = 'block';
-
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
-
-            html5QrCode.start(
-                { facingMode: "environment" },
-                {
-                    fps: 15,
-                    qrbox: { width: 260, height: 260 }
-                },
-                function(decodedText) {
-                    // 掃描成功帶入輸入框
-                    var cleanCode = decodedText.trim();
-                    document.getElementById('q').value = cleanCode;
-                    
-                    // 關閉掃描視窗
-                    closeScanner();
-
-                    // 自動執行查詢 (若為14碼將自動觸發系列關聯)
-                    doSearch();
-                },
-                function(errorMessage) {
-                    // 偵測中，略過
-                }
-            ).catch(function(err) {
-                alert("相機開啟失敗，請確認已授權瀏覽器使用相機：" + err);
-                closeScanner();
-            });
-        });
-
-        document.getElementById('btn-close-scanner').addEventListener('click', closeScanner);
-
-        function closeScanner() {
-            var overlay = document.getElementById('scanner-overlay');
-            if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().then(function() {
-                    overlay.style.display = 'none';
-                }).catch(function() {
-                    overlay.style.display = 'none';
-                });
-            } else {
-                overlay.style.display = 'none';
-            }
         }
     </script>
 </body>
