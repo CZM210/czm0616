@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.6</title>
+    <title>商品查詢器 v5.8</title>
     <!-- 引入條碼掃描套件 -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -114,7 +114,7 @@
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
-            <div id="status" class="status-bar">就緒 (v5.6)</div>
+            <div id="status" class="status-bar">檢查快取中...</div>
         </div>
         <div id="ui-memo-header" class="hidden"><div class="status-bar">暫存商品可加減數量與記錄備註</div></div>
     </div>
@@ -137,19 +137,81 @@
     </div>
 
     <script type="text/javascript">
+        // ==========================================
+        // ★ 核心版本號設定：只要改這裡，手機就會強制更新資料庫！
+        // ==========================================
+        var DATA_VERSION = "20260919_v5.4.3"; 
+
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
 
-        window.onload = function() {
-            var DATA_VERSION = "20260919_v5.4.3";
-            fetch('data.json?v=' + DATA_VERSION).then(res => res.json()).then(data => {
-                ALL = data;
-                document.getElementById('status').innerText = "系統就緒 (" + DATA_VERSION + ")";
-            }).catch(e => {
-                document.getElementById('status').innerText = "資料載入失敗，請檢查網路連線";
+        // === IndexedDB 本地極速快取 (省流量核心) ===
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                var req = indexedDB.open("PoyaDataDB", 1);
+                req.onupgradeneeded = function(e) {
+                    var db = e.target.result;
+                    if (!db.objectStoreNames.contains("store")) {
+                        db.createObjectStore("store");
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
             });
+        }
+
+        async function getCachedData() {
+            try {
+                var db = await openDB();
+                return new Promise((resolve) => {
+                    var tx = db.transaction("store", "readonly");
+                    var req = tx.objectStore("store").get("goods");
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => resolve(null);
+                });
+            } catch(e) { return null; }
+        }
+
+        async function saveCachedData(data) {
+            try {
+                var db = await openDB();
+                var tx = db.transaction("store", "readwrite");
+                tx.objectStore("store").put(data, "goods");
+            } catch(e) {}
+        }
+
+        // === 網頁啟動：核對版本號 ===
+        window.onload = async function() {
+            var statusEl = document.getElementById('status');
+            var localVersion = localStorage.getItem('poya_version_check');
+
+            // 1. 版本一致：直接從手機資料庫載入，完全不耗網路流量！
+            if (localVersion === DATA_VERSION) {
+                var cached = await getCachedData();
+                if (cached && cached.length > 0) {
+                    ALL = cached;
+                    statusEl.innerText = "系統就緒 (本機快取 " + DATA_VERSION + ")";
+                    updateBadge();
+                    return;
+                }
+            }
+
+            // 2. 版本不同（你修改了上方版本號）或首次載入：強制向 GitHub 下載最新版
+            statusEl.innerText = "正在更新資料庫 (" + DATA_VERSION + ")...";
+            fetch('data.json?v=' + DATA_VERSION)
+                .then(res => res.json())
+                .then(async data => {
+                    ALL = data;
+                    await saveCachedData(data); // 存入手機本機
+                    localStorage.setItem('poya_version_check', DATA_VERSION); // 記錄已更新版本
+                    statusEl.innerText = "系統就緒 (" + DATA_VERSION + ")";
+                    updateBadge();
+                })
+                .catch(e => {
+                    statusEl.innerText = "資料載入失敗，請檢查網路連線";
+                });
             updateBadge();
         };
 
@@ -174,24 +236,24 @@
             fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
         }
 
-        // 提取系列主幹（自動截除顏色與規格）
+        // 提取系列主幹：保留品牌前綴 (LDH-)，切除最後規格 (-咖F)
         function getBaseSeriesName(name) {
             var str = String(name || '').trim();
-            str = str.replace(/[\-_/（\(].*$/, '');
-            str = str.replace(/(金|銀|黑|白|灰|紅|藍|綠|黃|粉|膚|紫|棕|咖|米|奶茶|單入|雙入|組|包|S|M|L|XL)$/gi, '');
+            str = str.replace(/[\(（][^\)）]+[\)）]$/, '');
+            var lastSepIdx = Math.max(str.lastIndexOf('-'), str.lastIndexOf('/'), str.lastIndexOf('_'));
+            if (lastSepIdx > 0 && lastSepIdx > str.length - 7) {
+                str = str.substring(0, lastSepIdx);
+            }
+            str = str.replace(/(金|銀|黑|白|灰|紅|藍|綠|黃|粉|膚|紫|棕|咖|米|奶茶|淺咖|淺膚|灰紫|湖藍|粉桔|深藍|單入|雙入|組|包|S|M|L|XL|XXL|F|加大)$/gi, '');
             return str.trim();
         }
 
-        // 雙向文字相似度
+        // 雙向相似度計算
         function getSimilarity(s1, s2) {
             var c1 = String(s1 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
             var c2 = String(s2 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
             if (!c1 || !c2) return 0;
             if (c1 === c2) return 1.0;
-
-            if (c1.length >= 3 && (c2.includes(c1) || c1.includes(c2))) {
-                return 0.88;
-            }
 
             var map = {};
             for (var i = 0; i < c1.length - 1; i++) {
@@ -273,14 +335,13 @@
             if(!val) return;
             CUR = [];
 
-            // 支援 13 或 14 碼純數字條碼觸發同系列聯想
+            // 判斷 13 或 14 碼國碼
             var isBarcode = /^\d{13,14}$/.test(val);
 
             if (isBarcode) {
                 var exactItem = ALL.find(item => String(item[1]).trim() === val);
 
                 if (exactItem) {
-                    // 完全命中的該商品置頂 (100000 分)
                     var exactEntry = exactItem.slice();
                     exactEntry.push(100000);
                     CUR.push(exactEntry);
@@ -288,16 +349,23 @@
                     var baseName = getBaseSeriesName(exactItem[3]);
                     var rawBase = exactItem[3];
 
-                    // 找出同系列其他款式
                     for (var i = 0; i < ALL.length; i++) {
                         var target = ALL[i];
                         if (String(target[1]).trim() === val) continue;
 
                         var targetName = target[3];
-                        var sim = Math.max(getSimilarity(baseName, targetName), getSimilarity(rawBase, targetName));
-                        var isSeriesMatch = (baseName.length >= 3 && targetName.includes(baseName));
+                        var targetBase = getBaseSeriesName(targetName);
 
-                        if (sim >= 0.60 || isSeriesMatch) {
+                        var sim = Math.max(
+                            getSimilarity(baseName, targetBase),
+                            getSimilarity(baseName, targetName),
+                            getSimilarity(rawBase, targetName)
+                        );
+
+                        var isExactSeries = (baseName.length >= 4 && targetBase.length >= 4 && (targetBase === baseName || targetName.includes(baseName)));
+
+                        // 相似度門檻 75%
+                        if (sim >= 0.75 || isExactSeries) {
                             var entry = target.slice();
                             var deptBonus = (target[0] === exactItem[0]) ? 2000 : 0;
                             var score = Math.round(sim * 1000) + deptBonus;
@@ -346,7 +414,7 @@
                     }
                 });
                 
-                // 判斷國碼是否與輸入值完全相符
+                // 完全命中的國碼加上粉紅色背景
                 var isExactBarcode = (String(r[1]).trim() === val);
                 var barcodeHtml = isExactBarcode 
                     ? '<span class="exact-barcode">' + r[1] + '</span>' 
