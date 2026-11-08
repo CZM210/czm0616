@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.8</title>
+    <title>商品查詢器 v5.9</title>
     <!-- 引入條碼掃描套件 -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,8 +12,10 @@
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         .search-box { display: flex; padding: 8px; gap: 6px; }
         input { flex: 1; padding: 10px; font-size: 17px; border: 1px solid #ccc; border-radius: 4px; outline: none; min-width: 0; }
-        .btn-main { padding: 0 15px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 16px; }
-        .btn-scan { padding: 0 13px; background: var(--poya); color: white; border: none; border-radius: 4px; font-size: 19px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-main { padding: 0 12px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 15px; }
+        .btn-online { padding: 0 10px; background: #4a69bd; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 13px; }
+        .btn-online:disabled { background: #b0bec5; cursor: not-allowed; }
+        .btn-scan { padding: 0 11px; background: var(--poya); color: white; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
         .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
@@ -100,8 +102,9 @@
 <body>
     <div class="sticky-header">
         <div class="search-box">
-            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="品名或國碼..">
+            <input type="text" id="q" onkeypress="if(event.keyCode==13) doSearch();" placeholder="品名、國碼或線上買8碼..">
             <button class="btn-scan" id="btn-scan" title="開啟相機掃條碼">📷</button>
+            <button class="btn-online" id="btn-online" onclick="resolveOnlineItem()" title="線上買編號轉查品名">線上買</button>
             <button class="btn-main" id="btn-search" onclick="doSearch()">查詢</button>
         </div>
         <div class="nav-row">
@@ -146,6 +149,8 @@
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
+        // ★ 新增：線上買編號轉查品名專用 GAS
+        var ONLINE_GAS_URL = "https://script.google.com/macros/s/AKfycbyREMW747Fz5hvTEwuKGE0zJzLGGASCAxSFZRbSBW8fOLynvwa3hd5HDg4RU-77SSsleA/exec";
 
         // === IndexedDB 本地極速快取 (省流量核心) ===
         function openDB() {
@@ -234,6 +239,49 @@
 
             fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old log error"));
             fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
+        }
+
+        // ==========================================
+        // ★ 線上買編號轉查品名核心邏輯
+        // ==========================================
+        async function resolveOnlineItem() {
+            var inputEl = document.getElementById('q');
+            var statusEl = document.getElementById('status');
+            var btnOnline = document.getElementById('btn-online');
+            var rawVal = inputEl.value.trim();
+
+            if (!rawVal) {
+                statusEl.innerText = "⚠️ 請先輸入線上買 8 碼編號或網址";
+                return;
+            }
+
+            var idMatch = rawVal.match(/\d{7,9}/);
+            if (!idMatch) {
+                statusEl.innerText = "⚠️ 格式不符：請確認是否包含 7-9 位編號";
+                return;
+            }
+
+            var salePageId = idMatch[0];
+            btnOnline.disabled = true;
+            statusEl.innerText = "⏳ 正在連線解析線上買【" + salePageId + "】品名...";
+
+            try {
+                var res = await fetch(ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId));
+                var data = await res.json();
+
+                if (data.success && data.title) {
+                    inputEl.value = data.title;
+                    statusEl.innerText = "✅ 已取得品名，正在自動比對門市資料...";
+                    // 自動觸發原有本機資料庫搜尋
+                    doSearch();
+                } else {
+                    statusEl.innerText = "❌ " + (data.message || "線上買查無此商品或已下架");
+                }
+            } catch (err) {
+                statusEl.innerText = "⚠️ 連線異常，請檢查網路或改用關鍵字查詢";
+            } finally {
+                btnOnline.disabled = false;
+            }
         }
 
         // 提取系列主幹：保留品牌前綴 (LDH-)，切除最後規格 (-咖F)
