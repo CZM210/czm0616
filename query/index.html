@@ -149,8 +149,9 @@
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
-        // ★ 線上買編號轉查品名專用 GAS
-        var ONLINE_GAS_URL = "https://script.google.com/macros/s/AKfycbyREMW747Fz5hvTEwuKGE0zJzLGGASCAxSFZRbSBW8fOLynvwa3hd5HDg4RU-77SSsleA/exec";
+        
+        // ★ 線上買編號轉查品名專用 GAS (更新為最新部署網址)
+        var ONLINE_GAS_URL = "https://script.google.com/macros/s/AKfycbzyfwXq4g2jXp1smIVcftW8K_F6Ky0mrppCgOFVhstxIzNiUeO2lXligQqdVP8U1yUnNA/exec";
 
         // === IndexedDB 本地極速快取 (省流量核心) ===
         function openDB() {
@@ -192,7 +193,6 @@
             var statusEl = document.getElementById('status');
             var localVersion = localStorage.getItem('poya_version_check');
 
-            // 1. 版本一致：直接從手機資料庫載入，完全不耗網路流量！
             if (localVersion === DATA_VERSION) {
                 var cached = await getCachedData();
                 if (cached && cached.length > 0) {
@@ -203,14 +203,13 @@
                 }
             }
 
-            // 2. 版本不同（修改上方版本號）或首次載入：強制向 GitHub 下載最新版
             statusEl.innerText = "正在更新資料庫 (" + DATA_VERSION + ")...";
             fetch('data.json?v=' + DATA_VERSION)
                 .then(res => res.json())
                 .then(async data => {
                     ALL = data;
-                    await saveCachedData(data); // 存入手機本機
-                    localStorage.setItem('poya_version_check', DATA_VERSION); // 記錄已更新版本
+                    await saveCachedData(data);
+                    localStorage.setItem('poya_version_check', DATA_VERSION);
                     statusEl.innerText = "系統就緒 (" + DATA_VERSION + ")";
                     updateBadge();
                 })
@@ -242,9 +241,9 @@
         }
 
         // ==========================================
-        // ★ 線上買編號轉查品名核心邏輯 (GAS 穩定版)
+        // ★ 線上買編號轉查品名 (JSONP 動態腳本注入，徹底繞過 CORS 與 fetch 限制)
         // ==========================================
-        async function resolveOnlineItem() {
+        function resolveOnlineItem() {
             var inputEl = document.getElementById('q');
             var statusEl = document.getElementById('status');
             var btnOnline = document.getElementById('btn-online');
@@ -265,40 +264,48 @@
             btnOnline.disabled = true;
             statusEl.innerText = "⏳ 正在連線解析線上買【" + salePageId + "】品名...";
 
-            try {
-                var reqUrl = ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId);
-                var res = await fetch(reqUrl, {
-                    method: "GET",
-                    mode: "cors",
-                    redirect: "follow",
-                    headers: {
-                        "Accept": "application/json"
-                    }
-                });
+            // 建立全域隨機 callback 名稱
+            var callbackName = "poyaCallback_" + Math.floor(Math.random() * 1000000);
+            var script = document.createElement("script");
 
-                if (!res.ok) {
-                    throw new Error("HTTP " + res.status);
-                }
+            // 10 秒逾時保護
+            var timeoutId = setTimeout(function() {
+                cleanup();
+                statusEl.innerText = "⚠️ 連線逾時，請檢查門市網路或稍後再試";
+            }, 10000);
 
-                var data = await res.json();
+            function cleanup() {
+                clearTimeout(timeoutId);
+                btnOnline.disabled = false;
+                if (script.parentNode) script.parentNode.removeChild(script);
+                delete window[callbackName];
+            }
 
+            // 註冊全域接收函式
+            window[callbackName] = function(data) {
+                cleanup();
                 if (data.success && data.title) {
-                    // 自動移除尾巴售價 (如 NT$45)
+                    // 自動去除尾巴售價 (如 NT$45)
                     var cleanTitle = data.title.replace(/\s*NT\$\d+/i, '').trim();
                     inputEl.value = cleanTitle;
                     statusEl.innerText = "✅ 已取得品名，正在自動比對門市資料...";
                     
-                    // 自動連動原本門市搜尋
+                    // 自動連動原本門市資料庫查詢
                     doSearch();
                 } else {
                     statusEl.innerText = "❌ " + (data.message || "線上買查無此商品或已下架");
                 }
-            } catch (err) {
-                console.error("Online lookup error:", err);
-                statusEl.innerText = "⚠️ 解析失敗 (" + (err.message || "連線異常") + ")，請手動輸入查詢";
-            } finally {
-                btnOnline.disabled = false;
-            }
+            };
+
+            // 綁定載入失敗事件
+            script.onerror = function() {
+                cleanup();
+                statusEl.innerText = "⚠️ 連線失敗，請確認門市網路或稍後重試";
+            };
+
+            // 注入 script 標籤觸發請求
+            script.src = ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId) + "&callback=" + callbackName;
+            document.body.appendChild(script);
         }
 
         // 提取系列主幹：保留品牌前綴 (LDH-)，切除最後規格 (-咖F)
@@ -400,7 +407,6 @@
             if(!val) return;
             CUR = [];
 
-            // 判斷 13 或 14 碼國碼
             var isBarcode = /^\d{13,14}$/.test(val);
 
             if (isBarcode) {
@@ -429,7 +435,6 @@
 
                         var isExactSeries = (baseName.length >= 4 && targetBase.length >= 4 && (targetBase === baseName || targetName.includes(baseName)));
 
-                        // 相似度門檻 75%
                         if (sim >= 0.75 || isExactSeries) {
                             var entry = target.slice();
                             var deptBonus = (target[0] === exactItem[0]) ? 2000 : 0;
@@ -479,7 +484,6 @@
                     }
                 });
                 
-                // 完全命中的國碼加上粉紅色背景
                 var isExactBarcode = (String(r[1]).trim() === val);
                 var barcodeHtml = isExactBarcode 
                     ? '<span class="exact-barcode">' + r[1] + '</span>' 
