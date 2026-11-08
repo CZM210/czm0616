@@ -149,8 +149,6 @@
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
-        // ★ 新增：線上買編號轉查品名專用 GAS
-        var ONLINE_GAS_URL = "https://script.google.com/macros/s/AKfycbyREMW747Fz5hvTEwuKGE0zJzLGGASCAxSFZRbSBW8fOLynvwa3hd5HDg4RU-77SSsleA/exec";
 
         // === IndexedDB 本地極速快取 (省流量核心) ===
         function openDB() {
@@ -203,7 +201,7 @@
                 }
             }
 
-            // 2. 版本不同（你修改了上方版本號）或首次載入：強制向 GitHub 下載最新版
+            // 2. 版本不同（修改上方版本號）或首次載入：強制向 GitHub 下載最新版
             statusEl.innerText = "正在更新資料庫 (" + DATA_VERSION + ")...";
             fetch('data.json?v=' + DATA_VERSION)
                 .then(res => res.json())
@@ -242,7 +240,7 @@
         }
 
         // ==========================================
-        // ★ 線上買編號轉查品名核心邏輯
+        // ★ 線上買編號轉查品名 (純前端直連解析，徹底免除 CORS 阻擋)
         // ==========================================
         async function resolveOnlineItem() {
             var inputEl = document.getElementById('q');
@@ -266,25 +264,46 @@
             statusEl.innerText = "⏳ 正在連線解析線上買【" + salePageId + "】品名...";
 
             try {
-                var fetchUrl = ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId);
-                var res = await fetch(fetchUrl, {
-                    method: "GET",
-                    redirect: "follow"
-                });
+                var targetUrl = "https://www.poyabuy.com.tw/SalePage/Index/" + salePageId;
+                // 使用無跨域限制的通道取得頁面原始碼
+                var proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(targetUrl);
+                var res = await fetch(proxyUrl);
                 var data = await res.json();
+                var html = data.contents || "";
 
-                if (data.success && data.title) {
-                    // 自動去除尾巴的售價（如 NT$45）
-                    var cleanTitle = data.title.replace(/\s*NT\$\d+/i, '').trim();
+                // 解析品名 (優先 og:title，次選 title)
+                var title = "";
+                var ogMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["'](.*?)["']/i);
+                if (ogMatch && ogMatch[1]) {
+                    title = ogMatch[1];
+                } else {
+                    var titleMatch = html.match(/<title>(.*?)<\/title>/i);
+                    if (titleMatch && titleMatch[1]) {
+                        title = titleMatch[1].split("|")[0].trim();
+                    }
+                }
+
+                if (title && title.indexOf("熱銷推薦") !== 0) {
+                    // 1. 還原常見 HTML 符號
+                    title = title.replace(/&amp;/g, '&')
+                                 .replace(/&lt;/g, '<')
+                                 .replace(/&gt;/g, '>')
+                                 .replace(/&quot;/g, '"')
+                                 .replace(/&#39;/g, "'");
+
+                    // 2. 去除尾巴售價 (如 NT$45)
+                    var cleanTitle = title.replace(/\s*NT\$\d+/i, '').trim();
+
                     inputEl.value = cleanTitle;
                     statusEl.innerText = "✅ 已取得品名，正在自動比對門市資料...";
-                    // 自動觸發原有本機資料庫搜尋
+                    
+                    // 自動觸發原有本機查詢
                     doSearch();
                 } else {
-                    statusEl.innerText = "❌ " + (data.message || "線上買查無此商品或已下架");
+                    statusEl.innerText = "❌ 線上買查無此商品或已下架";
                 }
             } catch (err) {
-                statusEl.innerText = "⚠️ 連線異常，請檢查網路或改用關鍵字查詢";
+                statusEl.innerText = "⚠️ 連線異常，請手動輸入查詢";
             } finally {
                 btnOnline.disabled = false;
             }
