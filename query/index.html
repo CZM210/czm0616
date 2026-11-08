@@ -266,11 +266,17 @@
             statusEl.innerText = "⏳ 正在連線解析線上買【" + salePageId + "】品名...";
 
             try {
-                var res = await fetch(ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId));
+                var fetchUrl = ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId);
+                var res = await fetch(fetchUrl, {
+                    method: "GET",
+                    redirect: "follow"
+                });
                 var data = await res.json();
 
                 if (data.success && data.title) {
-                    inputEl.value = data.title;
+                    // 自動去除尾巴的售價（如 NT$45）
+                    var cleanTitle = data.title.replace(/\s*NT\$\d+/i, '').trim();
+                    inputEl.value = cleanTitle;
                     statusEl.innerText = "✅ 已取得品名，正在自動比對門市資料...";
                     // 自動觸發原有本機資料庫搜尋
                     doSearch();
