@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.9.1</title>
+    <title>商品查詢器 v5.9.2</title>
     <!-- 引入條碼掃描套件 -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -38,7 +38,6 @@
         .btn-remove { position: absolute; right: 10px; top: 12px; background: #999; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
         .highlight { color: var(--poya); background: #fff9c4; font-weight: bold; }
         
-        /* 完全相符的國碼背景色 */
         .exact-barcode {
             background-color: var(--poya);
             color: #ffffff !important;
@@ -116,7 +115,7 @@
         </div>
         <div id="ui-search-header">
             <div class="sort-row">
-                <button class="sort-btn" onclick="sort(0)">分類 ↕</button>
+                <button class="sort-btn" onclick="sort(0)">部門 ↕</button>
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
@@ -143,8 +142,8 @@
     </div>
 
     <script type="text/javascript">
-        // ★ 核心版本號設定：更新此處強制手機更新資料庫
-        var DATA_VERSION = "20261114_v5.9.1"; 
+        // ★ 更新版本號強制刷新
+        var DATA_VERSION = "20261114_v5.9.2"; 
 
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
@@ -225,20 +224,13 @@
                 userIp = data.ip;
             } catch (e) { }
 
-            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
-                         "&count=" + count + 
-                         "&ip=" + userIp + 
-                         "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
-            
-            var newUrl = NEW_GAS_URL + "?action=record" + 
-                         "&type=" + encodeURIComponent("查詢") + 
-                         "&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆 | IP: " + userIp);
+            var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + "&count=" + count + "&ip=" + userIp + "&agent=" + encodeURIComponent(navigator.userAgent.substring(0, 50));
+            var newUrl = NEW_GAS_URL + "?action=record&type=" + encodeURIComponent("查詢") + "&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆 | IP: " + userIp);
 
             fetch(oldUrl, { mode: 'no-cors' }).catch(e => {});
             fetch(newUrl, { mode: 'no-cors' }).catch(e => {});
         }
 
-        // === 線上買編號轉查 ===
         function resolveOnlineItem() {
             var inputEl = document.getElementById('q');
             var statusEl = document.getElementById('status');
@@ -388,7 +380,6 @@
             return (matchedChars * 100) * compactness;
         }
 
-        // === 核心進化：融入小分類與部門降維判定 ===
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
@@ -401,13 +392,12 @@
 
                 if (exactItem) {
                     var exactEntry = exactItem.slice();
-                    exactEntry.push(100000); // 絕對置頂
+                    exactEntry.push(100000); 
                     CUR.push(exactEntry);
 
                     var baseName = getBaseSeriesName(exactItem[3]);
                     var rawBase = exactItem[3];
                     
-                    // 擷取小分類與大部門
                     var exactSubCat = String(exactItem[0] || '').trim();
                     var exactDept = exactSubCat.substring(0, 3);
 
@@ -417,7 +407,6 @@
 
                         var targetName = target[3];
                         var targetBase = getBaseSeriesName(targetName);
-                        
                         var targetSubCat = String(target[0] || '').trim();
                         var targetDept = targetSubCat.substring(0, 3);
 
@@ -429,16 +418,14 @@
 
                         var isExactSeries = (baseName.length >= 4 && targetBase.length >= 4 && (targetBase === baseName || targetName.includes(baseName)));
                         
-                        // 判定是否為同小分類或同大部門
                         var isSameSubCat = (targetSubCat === exactSubCat && exactSubCat !== '');
                         var isSameDept = (targetDept === exactDept && exactDept !== '');
 
-                        // ★ 若為同小分類，容忍度大幅提升至 0.4
-                        var threshold = isSameSubCat ? 0.4 : 0.75;
+                        // ★ 收束門檻：從過於寬鬆的 0.4 拉高到 0.65，避免無關短詞亂入
+                        var threshold = isSameSubCat ? 0.65 : 0.8;
 
                         if (sim >= threshold || isExactSeries) {
                             var entry = target.slice();
-                            // ★ 給予強制靠攏的分數紅利
                             var catBonus = isSameSubCat ? 5000 : (isSameDept ? 1000 : 0);
                             var score = Math.round(sim * 1000) + catBonus;
                             entry.push(score);
@@ -492,8 +479,12 @@
                     : '<span>' + r[1] + '</span>';
 
                 var isSaved = MEMO[r[1]] ? 'done' : '';
+                
+                // ★ 部門顯示修正：只顯示前三碼 (截斷小分類後綴)
+                var displayDept = String(r[0] || '').substring(0, 3);
+                
                 h += '<div class="item-row"><span class="item-name">'+name+'</span>';
-                h += '<div class="meta-line"><div>'+r[0]+'</div><div>'+barcodeHtml+'</div></div>';
+                h += '<div class="meta-line"><div>'+displayDept+'</div><div>'+barcodeHtml+'</div></div>';
                 h += '<button class="btn-save '+isSaved+'" onclick="save('+i+', this)">'+(MEMO[r[1]]?'已存':'暫存')+'</button></div>';
             }
             document.getElementById('view-search').innerHTML = h || '<div style="padding:50px;text-align:center;color:#999;">查無商品或未達相似度門檻</div>';
@@ -517,10 +508,13 @@
                 var qty = r.qty !== undefined ? r.qty : 0; 
                 var note = r.note || "";
                 
+                // ★ 部門顯示修正：只顯示前三碼 (截斷小分類後綴)
+                var displayDept = String(r.d || '').substring(0, 3);
+                
                 h += '<div class="memo-row"><div class="memo-top">';
                 h += '<div class="qty-box"><button class="qty-btn" onclick="changeQty(\''+id+'\',-1)">-</button><div class="qty-num">'+qty+'</div><button class="qty-btn" onclick="changeQty(\''+id+'\',1)">+</button></div>';
                 h += '<div style="flex:1;overflow:hidden;"><span class="item-name" style="width:100%">'+r.n+'</span></div></div>';
-                h += '<div class="meta-line"><div>'+r.d+'</div><div>'+r.g+'</div></div>';
+                h += '<div class="meta-line"><div>'+displayDept+'</div><div>'+r.g+'</div></div>';
                 h += '<textarea class="memo-input" placeholder="點擊記錄備註..." oninput="updateNote(\''+id+'\', this.value)">'+note+'</textarea>';
                 h += '<button class="btn-remove" onclick="remove(\''+id+'\')">移除</button></div>';
             });
@@ -534,14 +528,12 @@
                 renderMemoPage(); 
             } 
         }
-        
         function updateNote(id, txt) { 
             if(MEMO[id]) { 
                 MEMO[id].note = txt; 
                 localStorage.setItem('poya_v6', JSON.stringify(MEMO)); 
             } 
         }
-        
         function remove(id) { 
             if(confirm('確定移除此項商品？')) { 
                 delete MEMO[id]; 
@@ -549,16 +541,13 @@
                 renderMemoPage(); 
             } 
         }
-        
         function sync() { 
             localStorage.setItem('poya_v6', JSON.stringify(MEMO)); 
             updateBadge(); 
         }
-        
         function updateBadge() { 
             document.getElementById('memo-count').innerText = Object.keys(MEMO).length; 
         }
-
         function switchTab(m) {
             document.getElementById('tab-search').classList.toggle('active', m === 'search');
             document.getElementById('tab-memo').classList.toggle('active', m === 'memo');
@@ -568,7 +557,6 @@
             document.getElementById('ui-memo-header').classList.toggle('hidden', m !== 'memo');
             if(m === 'memo') renderMemoPage();
         }
-
         function sort(idx) {
             if(CUR.length == 0) return;
             var f = DIR[idx];
@@ -580,17 +568,12 @@
             renderSearchPage();
         }
 
-        // === 相機控制邏輯 ===
+        // === 相機控制 ===
         var html5QrCode = null;
-
         document.getElementById('btn-scan').addEventListener('click', function() {
             var overlay = document.getElementById('scanner-overlay');
             overlay.style.display = 'block';
-
-            if (!html5QrCode) {
-                html5QrCode = new Html5Qrcode("reader");
-            }
-
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
             html5QrCode.start(
                 { facingMode: "environment" },
                 { fps: 15, qrbox: { width: 260, height: 260 } },
@@ -602,21 +585,15 @@
                 },
                 function(errorMessage) {}
             ).catch(function(err) {
-                alert("相機開啟失敗，請確認已授權瀏覽器使用相機：" + err);
+                alert("相機開啟失敗：" + err);
                 closeScanner();
             });
         });
-
         document.getElementById('btn-close-scanner').addEventListener('click', closeScanner);
-
         function closeScanner() {
             var overlay = document.getElementById('scanner-overlay');
             if (html5QrCode && html5QrCode.isScanning) {
-                html5QrCode.stop().then(function() {
-                    overlay.style.display = 'none';
-                }).catch(function() {
-                    overlay.style.display = 'none';
-                });
+                html5QrCode.stop().then(function() { overlay.style.display = 'none'; }).catch(function() { overlay.style.display = 'none'; });
             } else {
                 overlay.style.display = 'none';
             }
