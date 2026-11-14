@@ -3,21 +3,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>商品查詢器 v5.9</title>
+    <title>商品查詢器 v5.9.1</title>
     <!-- 引入條碼掃描套件 -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --poya: #d63384; --border: #eee; --bg-memo: #fffde7; }
         body { font-family: "微軟正黑體", sans-serif; background: #fff; margin: 0; padding: 0; }
         .sticky-header { position: sticky; top: 0; background: #fff; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .search-box { display: flex; padding: 8px; gap: 6px; }
-        input { flex: 1; padding: 10px; font-size: 17px; border: 1px solid #ccc; border-radius: 4px; outline: none; min-width: 0; }
-        .btn-main { padding: 0 12px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 15px; }
-        .btn-online { padding: 0 10px; background: #4a69bd; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 13px; }
+        
+        /* 縮小搜尋列與按鈕間距，解決擁擠問題 */
+        .search-box { display: flex; padding: 6px 8px; gap: 4px; }
+        input { flex: 1; padding: 8px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; outline: none; min-width: 0; }
+        .btn-main { padding: 0 10px; background: var(--poya); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 14px; }
+        .btn-online { padding: 0 8px; background: #4a69bd; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 12px; }
         .btn-online:disabled { background: #b0bec5; cursor: not-allowed; }
-        .btn-scan { padding: 0 11px; background: var(--poya); color: white; border: none; border-radius: 4px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-scan { padding: 0 8px; background: var(--poya); color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
         .nav-row { display: flex; background: #fff; border-bottom: 2px solid var(--poya); }
-        .nav-btn { flex: 1; padding: 12px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
+        .nav-btn { flex: 1; padding: 10px 0; font-size: 15px; color: #666; border: none; background: none; font-weight: bold; cursor: pointer; text-align: center; }
         .nav-btn.active { color: var(--poya); background: #fdf2f7; }
         .sort-row { display: flex; background: var(--poya); padding: 5px 0; }
         .sort-btn { flex: 1; padding: 6px 0; font-size: 13px; color: white; border: none; background: none; font-weight: bold; }
@@ -113,7 +116,7 @@
         </div>
         <div id="ui-search-header">
             <div class="sort-row">
-                <button class="sort-btn" onclick="sort(0)">部門 ↕</button>
+                <button class="sort-btn" onclick="sort(0)">分類 ↕</button>
                 <button class="sort-btn" onclick="sort(1)">國碼 ↕</button>
                 <button class="sort-btn" onclick="sort(3)">品名 ↕</button>
             </div>
@@ -140,20 +143,16 @@
     </div>
 
     <script type="text/javascript">
-        // ==========================================
-        // ★ 核心版本號設定：只要改這裡，手機就會強制更新資料庫！
-        // ==========================================
-        var DATA_VERSION = "20261014_v5.4.3"; 
+        // ★ 核心版本號設定：更新此處強制手機更新資料庫
+        var DATA_VERSION = "20261114_v5.9.1"; 
 
         var ALL = [], CUR = [], DIR = [1, 1, 1, 1];
         var MEMO = JSON.parse(localStorage.getItem('poya_v6') || '{}');
         var OLD_GAS_URL = "https://script.google.com/macros/s/AKfycbwPPvJqCN9WFnWCAW6TBWBBZNsQSlUWIouQcx8cR0OxFx_VNhghmBpVAeEs11xy_k22Tg/exec";
         var NEW_GAS_URL = "https://script.google.com/macros/s/AKfycbxa4ScSnIdj3RSWkGLY7w98UUCn5oHQf-Gx0Pp9UO6fDjMlOjWxWt9gUttekXVtc2fHmg/exec";
-        
-        // ★ 線上買編號轉查品名專用 GAS (更新為最新部署網址)
         var ONLINE_GAS_URL = "https://script.google.com/macros/s/AKfycbzyfwXq4g2jXp1smIVcftW8K_F6Ky0mrppCgOFVhstxIzNiUeO2lXligQqdVP8U1yUnNA/exec";
 
-        // === IndexedDB 本地極速快取 (省流量核心) ===
+        // === IndexedDB 本地極速快取 ===
         function openDB() {
             return new Promise((resolve, reject) => {
                 var req = indexedDB.open("PoyaDataDB", 1);
@@ -188,7 +187,6 @@
             } catch(e) {}
         }
 
-        // === 網頁啟動：核對版本號 ===
         window.onload = async function() {
             var statusEl = document.getElementById('status');
             var localVersion = localStorage.getItem('poya_version_check');
@@ -225,7 +223,7 @@
                 var response = await fetch('https://api.ipify.org?format=json');
                 var data = await response.json();
                 userIp = data.ip;
-            } catch (e) { console.log("IP API Timeout"); }
+            } catch (e) { }
 
             var oldUrl = OLD_GAS_URL + "?q=" + encodeURIComponent(q) + 
                          "&count=" + count + 
@@ -236,13 +234,11 @@
                          "&type=" + encodeURIComponent("查詢") + 
                          "&content=" + encodeURIComponent("關鍵字: " + q + " | 結果: " + count + " 筆 | IP: " + userIp);
 
-            fetch(oldUrl, { mode: 'no-cors' }).catch(e => console.log("Old log error"));
-            fetch(newUrl, { mode: 'no-cors' }).catch(e => console.log("New log error"));
+            fetch(oldUrl, { mode: 'no-cors' }).catch(e => {});
+            fetch(newUrl, { mode: 'no-cors' }).catch(e => {});
         }
 
-        // ==========================================
-        // ★ 線上買編號轉查品名 (JSONP 動態腳本注入，徹底繞過 CORS 與 fetch 限制)
-        // ==========================================
+        // === 線上買編號轉查 ===
         function resolveOnlineItem() {
             var inputEl = document.getElementById('q');
             var statusEl = document.getElementById('status');
@@ -264,11 +260,9 @@
             btnOnline.disabled = true;
             statusEl.innerText = "⏳ 正在連線解析線上買【" + salePageId + "】品名...";
 
-            // 建立全域隨機 callback 名稱
             var callbackName = "poyaCallback_" + Math.floor(Math.random() * 1000000);
             var script = document.createElement("script");
 
-            // 10 秒逾時保護
             var timeoutId = setTimeout(function() {
                 cleanup();
                 statusEl.innerText = "⚠️ 連線逾時，請檢查門市網路或稍後再試";
@@ -281,34 +275,27 @@
                 delete window[callbackName];
             }
 
-            // 註冊全域接收函式
             window[callbackName] = function(data) {
                 cleanup();
                 if (data.success && data.title) {
-                    // 自動去除尾巴售價 (如 NT$45)
                     var cleanTitle = data.title.replace(/\s*NT\$\d+/i, '').trim();
                     inputEl.value = cleanTitle;
                     statusEl.innerText = "✅ 已取得品名，正在自動比對門市資料...";
-                    
-                    // 自動連動原本門市資料庫查詢
                     doSearch();
                 } else {
                     statusEl.innerText = "❌ " + (data.message || "線上買查無此商品或已下架");
                 }
             };
 
-            // 綁定載入失敗事件
             script.onerror = function() {
                 cleanup();
                 statusEl.innerText = "⚠️ 連線失敗，請確認門市網路或稍後重試";
             };
 
-            // 注入 script 標籤觸發請求
             script.src = ONLINE_GAS_URL + "?id=" + encodeURIComponent(salePageId) + "&callback=" + callbackName;
             document.body.appendChild(script);
         }
 
-        // 提取系列主幹：保留品牌前綴 (LDH-)，切除最後規格 (-咖F)
         function getBaseSeriesName(name) {
             var str = String(name || '').trim();
             str = str.replace(/[\(（][^\)）]+[\)）]$/, '');
@@ -320,7 +307,6 @@
             return str.trim();
         }
 
-        // 雙向相似度計算
         function getSimilarity(s1, s2) {
             var c1 = String(s1 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
             var c2 = String(s2 || '').replace(/[\s\+\-\/\(\)\[\]\._]+/g, '').toLowerCase();
@@ -402,6 +388,7 @@
             return (matchedChars * 100) * compactness;
         }
 
+        // === 核心進化：融入小分類與部門降維判定 ===
         function doSearch() {
             var val = document.getElementById('q').value.trim();
             if(!val) return;
@@ -414,11 +401,15 @@
 
                 if (exactItem) {
                     var exactEntry = exactItem.slice();
-                    exactEntry.push(100000);
+                    exactEntry.push(100000); // 絕對置頂
                     CUR.push(exactEntry);
 
                     var baseName = getBaseSeriesName(exactItem[3]);
                     var rawBase = exactItem[3];
+                    
+                    // 擷取小分類與大部門
+                    var exactSubCat = String(exactItem[0] || '').trim();
+                    var exactDept = exactSubCat.substring(0, 3);
 
                     for (var i = 0; i < ALL.length; i++) {
                         var target = ALL[i];
@@ -426,6 +417,9 @@
 
                         var targetName = target[3];
                         var targetBase = getBaseSeriesName(targetName);
+                        
+                        var targetSubCat = String(target[0] || '').trim();
+                        var targetDept = targetSubCat.substring(0, 3);
 
                         var sim = Math.max(
                             getSimilarity(baseName, targetBase),
@@ -434,11 +428,19 @@
                         );
 
                         var isExactSeries = (baseName.length >= 4 && targetBase.length >= 4 && (targetBase === baseName || targetName.includes(baseName)));
+                        
+                        // 判定是否為同小分類或同大部門
+                        var isSameSubCat = (targetSubCat === exactSubCat && exactSubCat !== '');
+                        var isSameDept = (targetDept === exactDept && exactDept !== '');
 
-                        if (sim >= 0.75 || isExactSeries) {
+                        // ★ 若為同小分類，容忍度大幅提升至 0.4
+                        var threshold = isSameSubCat ? 0.4 : 0.75;
+
+                        if (sim >= threshold || isExactSeries) {
                             var entry = target.slice();
-                            var deptBonus = (target[0] === exactItem[0]) ? 2000 : 0;
-                            var score = Math.round(sim * 1000) + deptBonus;
+                            // ★ 給予強制靠攏的分數紅利
+                            var catBonus = isSameSubCat ? 5000 : (isSameDept ? 1000 : 0);
+                            var score = Math.round(sim * 1000) + catBonus;
                             entry.push(score);
                             CUR.push(entry);
                         }
@@ -578,7 +580,7 @@
             renderSearchPage();
         }
 
-        // 相機控制邏輯
+        // === 相機控制邏輯 ===
         var html5QrCode = null;
 
         document.getElementById('btn-scan').addEventListener('click', function() {
